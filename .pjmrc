@@ -1,0 +1,8 @@
+#!/bin/sh
+function pjm() {
+  OUTPUT=`pjm1 $@`
+  if [ $? -eq 2 ]
+    then cd "$OUTPUT"
+    else echo "$OUTPUT"
+  fi
+}
