@@ -45,7 +45,6 @@ pub fn list() {
     for project in &projects.project {
         println!("{} - {}", project.name, project.action.file_or_dir);
     }
-    util::save_config_toml(&projects.ser());
 }
 
 pub fn remove(unwanted_project_name: &String) {
