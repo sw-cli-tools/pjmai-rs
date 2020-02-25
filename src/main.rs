@@ -1,17 +1,14 @@
-use std::env;
+use pjm1::args;
+use pjm1::command;
+use pjm1::config;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 1 {
-        println!("emacs pjm1 rtt1");
-        std::process::exit(0);
-    } else {
-        match args[1].as_ref() {
-            "emacs" => println!("/home/mike/.emacs.d/mw-emacs"),
-            "pjm1" => println!("/home/mike/github/wrightmikea/pjm1"),
-            "rtt1" => println!("/home/mike/github/wrightmikea/rtt1"),
-            _ => println!("/home/mike"),
-        }
-        std::process::exit(2)
+    let config = config::init();
+    match &config.command {
+        args::Subcommands::Add { project, file_or_dir } => command::add(project, file_or_dir),
+        args::Subcommands::Aliases { } => command::aliases(),
+        args::Subcommands::Change { project } => command::change(project),
+        args::Subcommands::List { } => command::list(),
+        args::Subcommands::Remove { project } => command::remove(project),
     }
 }

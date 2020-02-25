@@ -1,0 +1,19 @@
+version = "pjm1-0.1.0"
+
+[[project]]
+name = "rtt1"
+
+[project.action]
+file_or_dir = "~/github/wrightmikea/rtt1"
+
+[[project]]
+name = "pjm1"
+
+[project.action]
+file_or_dir = "~/github/wrightmikea/pjm1/.pjmrc"
+
+[[project]]
+name = "mr"
+
+[project.action]
+file_or_dir = "/home/mike/github/wrightmikea/mono-rust/"

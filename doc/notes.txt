@@ -1,0 +1,23 @@
+- for all (init) check for ~/.pjm/config.toml
+- if not found, offer to create or quit
+
+- if found, but empty,
+-- if adpj - add
+-- if chpj - warn
+-- if lspj - warn
+-- if rmpj - warn
+- else not empty
+-- if adpj but same name, offer to replace or quit
+-- if chpj but not found, warn
+-- if lspj list
+-- if rmpj but not found, warn
+
+add - deser toml, add, ser toml; rc=0 out=confirm (err rc=4 out=warn)
+change - deser toml, if source, rc=3 out=script-path, else if cd, rc=2 out=dir, else rc=4 out=warn
+list - deser toml, list; rc=0 out=list (err rc=4 out=warn)
+remove - deser toml, rm, ser toml; rc=0 out=confirm (err rc=4 out=warn)
+internal error: err rc=5 out=error
+
+future:
+fdpj - find project - search for not-yet added projects by type with filter, interactive add?
+(r)emacs integration like fzf?
