@@ -83,13 +83,12 @@ mod tests {
             Args {
                 command: Subcommands::Add {
                     project: "pjm1".to_string(),
-                    directory: Some("~/gh/wma/pjm1".to_string()),
-                    file: None,
+                    file_or_dir: "~/gh/wma/pjm1".to_string(),
                 },
                 debug: false,
                 logging: false,
             },
-            Args::from_iter(&["test", "add", "-p", "pjm1", "-d", "~/gh/wma/pjm1"])
+            Args::from_iter(&["test", "add", "-p", "pjm1", "-f", "~/gh/wma/pjm1"])
         );
     }
 }
