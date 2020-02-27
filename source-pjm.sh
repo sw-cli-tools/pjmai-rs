@@ -1,5 +1,4 @@
 #!/bin/sh
-## https://www.thegeekstuff.com/2010/07/bash-case-statement/
 function pjm_fn() {
     PJM_OUT=`pjm1 $@`
     case "$?" in

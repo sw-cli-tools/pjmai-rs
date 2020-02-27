@@ -44,8 +44,8 @@ pub fn list() {
     let mut projects = util::projects();
     projects.project.sort_by(|a, b| a.name.cmp(&b.name));
     for project in &projects.project {
-        let short_name = shorten(&project.action.file_or_dir);
-        println!(" {:8} {}", project.name, short_name);
+        let short_path = util::shorten_path(&project.action.file_or_dir);
+        println!(" {:8} {}", project.name, short_path);
     }
 }
 
@@ -61,24 +61,4 @@ pub fn remove(unwanted_project_name: &String) {
         }
     }
     util::save_config_toml(&new_projects.ser());
-}
-
-fn shorten(long_name: &String) -> String {
-    let short_name;
-    let home = std::env::var("HOME").unwrap_or("".to_string());
-    if long_name.starts_with(&home) {
-        let mut skip = home.len();
-        let mut result = vec![];
-        for char in long_name.chars() {
-            if skip > 0 {
-                skip -= 1;
-            } else {
-                result.push(char);
-            }
-        }
-        short_name = "~".to_string() + &result.iter().collect::<String>().to_string();
-    } else {
-        short_name = long_name.to_string();
-    }
-    short_name.to_string()
 }
