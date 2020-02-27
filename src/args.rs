@@ -1,4 +1,8 @@
+use std::env;
+
 use structopt::StructOpt;
+
+include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 #[derive(Debug, PartialEq, StructOpt)]
 #[structopt(
@@ -8,8 +12,8 @@ for more details:
  chpj --help
  lspj --help
  rmpj --help
-"
-)]
+",
+    version = generated_version())]
 pub struct Args {
     #[structopt(long, short)]
     /// Prints debugging info.  -d must preceed subcommands
