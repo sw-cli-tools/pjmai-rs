@@ -32,20 +32,20 @@ pub fn change(project_name: &String) {
             if util::is_file_found(&file_path) {
                 projects.current_project = project.name.to_string();
                 util::save_config_toml(&projects.ser());
-                println!("{}", &file_path);
+                println!("{}", &file_path); // path parameter for bash cd or source command
                 if util::is_file_dir(&file_path) {
-                    std::process::exit(2); // wrapper will cd to the above printed path
+                    std::process::exit(2); // bash wrapper will cd to the above printed path
                 } else {
-                    std::process::exit(3); // wrapper will source the above printed path
+                    std::process::exit(3); // bash wrapper will source the above printed path
                 }
             } else {
                 println!("dir or file '{}' not found", &file_path);
-                std::process::exit(4); // wrapper will echo the error
+                std::process::exit(4); // bash wrapper will echo the error
             }
         }
     }
     println!("project '{}' not found", &project_name);
-    std::process::exit(4) // wrapper will echo the error
+    std::process::exit(4) // bash wrapper will echo the error
 }
 
 pub fn list() {
