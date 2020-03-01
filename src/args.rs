@@ -12,6 +12,7 @@ for more details:
  chpj --help
  lspj --help
  rmpj --help
+ shpj --help
 ",
     version = generated_version())]
 pub struct Args {
@@ -73,6 +74,13 @@ pub enum Subcommands {
         /// Removes project with this name
         project: String,
     },
+    /// Shows the previously changed-to project; alias shpj
+    #[structopt(
+        name = "show",
+        alias = "s",
+        help("shpj # show current project switched to by chpj")
+    )]
+    Show {},
 }
 pub fn parse_args() -> Args {
     Args::from_args()

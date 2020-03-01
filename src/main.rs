@@ -10,5 +10,6 @@ fn main() {
         args::Subcommands::Change { project } => command::change(project),
         args::Subcommands::List { } => command::list(),
         args::Subcommands::Remove { project } => command::remove(project),
+        args::Subcommands::Show { } => command::show(),
     }
 }

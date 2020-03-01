@@ -10,6 +10,7 @@ pub fn check() {
         }
     }
 }
+
 pub fn expand_file_path(file_path: &String) -> String {
     if file_path.starts_with("~") {
         let home = std::env::var("HOME").unwrap();

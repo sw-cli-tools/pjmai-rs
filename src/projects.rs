@@ -3,6 +3,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ProjectsRegistry {
     pub version: String,
+    pub current_project: String,
     pub project: Vec<ChangeToProject>,
 }
 #[derive(Debug, Deserialize, Serialize)]
@@ -17,6 +18,7 @@ pub struct Action {
 impl ProjectsRegistry {
     pub fn new() -> Self {
         ProjectsRegistry {
+            current_project: "".to_string(),
             project: vec![],
             version: "pjm1-0.1.0".to_string(),
         }
