@@ -11,10 +11,10 @@ pub fn check() {
     }
 }
 
-pub fn expand_file_path(file_path: &String) -> String {
-    if file_path.starts_with("~") {
+pub fn expand_file_path(file_path: &str) -> String {
+    if file_path.starts_with('~') {
         let home = std::env::var("HOME").unwrap();
-        let new_file_path = &file_path.to_string().replacen("~", &home.to_string(), 1).to_string();
+        let new_file_path = &file_path.to_string().replacen('~', &home, 1);
         new_file_path.to_string()
     } else {
         file_path.to_string()
@@ -33,7 +33,7 @@ pub fn projects() -> projects::ProjectsRegistry {
     projects::ProjectsRegistry::deser(projects_file_contents())
 }
 
-pub fn save_config_toml(projects_string: &String) {
+pub fn save_config_toml(projects_string: &str) {
     match io::write(projects_string, &projects_file_path()) {
         Ok(()) => (),
         Err(e) => panic!("unable to write file, e={}", e),
@@ -41,9 +41,9 @@ pub fn save_config_toml(projects_string: &String) {
 }
 
 
-pub fn shorten_path(long_path: &String) -> String {
+pub fn shorten_path(long_path: &str) -> String {
     let short_path;
-    let home = std::env::var("HOME").unwrap_or("".to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_|"".to_string());
     if long_path.starts_with(&home) {
         let mut skip = home.len();
         let mut result = vec![];
@@ -54,16 +54,16 @@ pub fn shorten_path(long_path: &String) -> String {
                 result.push(char);
             }
         }
-        short_path = "~".to_string() + &result.iter().collect::<String>().to_string();
+        short_path = "~".to_string() + &result.iter().collect::<String>();
     } else {
         short_path = long_path.to_string();
     }
-    short_path.to_string()
+    short_path
 }
 
 fn env_home() -> String {
     match std::env::var("HOME") {
-        Ok(home) => return home.to_string(),
+        Ok(home) => home,
         Err(e) => panic!("couldn't read environment variable HOME, e={}", e),
     }
 }
