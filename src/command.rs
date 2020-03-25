@@ -32,7 +32,7 @@ pub fn change(project_name: &str) {
             if util::is_file_found(&file_path) {
                 projects.current_project = project.name.to_string();
                 util::save_config_toml(&projects.ser());
-                println!("{}", &file_path); // path parameter for bash cd or source command
+                print!("{}", &file_path); // path parameter for bash cd or source command
                 if util::is_file_dir(&file_path) {
                     std::process::exit(2); // bash wrapper will cd to the above printed path
                 } else {

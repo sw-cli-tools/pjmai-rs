@@ -2,10 +2,11 @@
 # https://stackoverflow.com/questions/3515208/can-colorized-output-be-captured-via-shell-redirect
 function pjm_fn() {
     PJM_ARGS="$@"
-    PJM_OUT=`script --flush --quiet --return /tmp/pjm1-out.txt --command "pjm1 ${PJM_ARGS}"`
+    #    PJM_OUT=`script --flush --quiet --return /tmp/pjm1-out.txt --command "pjm1 ${PJM_ARGS}"`
+    PJM_OUT=`pjm1 ${PJM_ARGS}`
     case "$?" in
         2)
-            cd "${PJM_OUT}"
+            cd "${PJM_OUT::-1}"
             ;;
         3)
             source "$PJM_OUT"
