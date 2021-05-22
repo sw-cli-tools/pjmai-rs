@@ -5,6 +5,9 @@ use crate::util;
 
 pub fn add(project_name: &str, file_name: &str) {
     let mut projects = util::projects();
+    if is_dup(&project_name) {
+        panic!("cannot add duplicate project name {}", &project_name);
+    }
     projects.project.push(projects::ChangeToProject {
         action: projects::Action { file_or_dir: file_name.to_string() },
         name: project_name.to_string(),
@@ -97,4 +100,13 @@ pub fn show() {
                                    util::shorten_path(&project.action.file_or_dir)).green());
         }
     }
+}
+
+fn is_dup(check_project_name: &str) -> bool {
+    for project in &util::projects().project {
+        if project.name == check_project_name {
+            return true;
+        }
+    }
+    return false;
 }
