@@ -1,4 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
+include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ProjectsRegistry {
@@ -18,7 +19,7 @@ pub struct Action {
 impl ProjectsRegistry {
     pub fn new() -> Self {
         ProjectsRegistry {
-            version: "pjm1-0.1.0".to_string(),
+            version: generated_version().to_string(),
             ..Default::default()
         }
     }

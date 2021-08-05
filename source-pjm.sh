@@ -6,7 +6,7 @@ function pjm_fn() {
     PJM_OUT=`pjm1 ${PJM_ARGS}`
     case "$?" in
         2)
-            cd "${PJM_OUT::-1}"
+            cd "${PJM_OUT}"
             ;;
         3)
             source "$PJM_OUT"
