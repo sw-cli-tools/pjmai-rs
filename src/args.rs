@@ -69,6 +69,13 @@ pub enum Subcommands {
         alias = "r",
         help("rmpj name # removes named project")
     )]
+    /// Prompt string for previously changed-to project; alias prpj
+    #[structopt(
+        name = "prompt",
+        alias = "p",
+        help("prpj # prompt for current project switched to by chpj")
+    )]
+    Prompt {},
     Remove {
         #[structopt(long, short)]
         /// Removes project with this name

@@ -5,7 +5,7 @@ use crate::util;
 
 pub fn add(project_name: &str, file_name: &str) {
     let mut projects = util::projects();
-    if is_dup(&project_name) {
+    if is_dup(project_name) {
         panic!("cannot add duplicate project name {}", &project_name);
     }
     projects.project.push(projects::ChangeToProject {
@@ -23,6 +23,7 @@ pub fn aliases() {
     println!("chpj <name>               # alias for pjm1 change");
     println!("hlpj                      # alias for pjm1 aliases");
     println!("lspj                      # alias for pjm1 list");
+    println!("prpj                      # alias for pjm1 prompt");
     println!("rmpj <name>               # alias for pjm1 remove");
     println!("shpj                      # alias for pjm1 show");
 }
@@ -75,6 +76,16 @@ pub fn list() {
     }
 }
 
+pub fn prompt() {
+    let projects = util::projects();
+    for project in &projects.project {
+        if project.name == projects.current_project {
+            println!("{}", project.name.to_string());
+        }
+    }
+}
+
+
 pub fn remove(unwanted_project_name: &str) {
     let old_projects = util::projects();
     let mut new_projects = projects::ProjectsRegistry::new();
@@ -108,5 +119,5 @@ fn is_dup(check_project_name: &str) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }

@@ -90,9 +90,6 @@ fn prompt_create_yes_no() -> bool {
     stdout().flush().expect("flush stdout");
     let mut input = String::new();
     stdin().read_line(&mut input).expect("read stdin");
-    match input.as_ref() {
-        "Y\n" | "y\n" | "\n" => true,
-        _ => false,
-    }
+    matches!(input.as_ref(), "Y\n" | "y\n" | "\n")
 }
 

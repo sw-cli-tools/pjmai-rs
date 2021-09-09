@@ -9,6 +9,7 @@ fn main() {
         args::Subcommands::Aliases { } => command::aliases(),
         args::Subcommands::Change { project } => command::change(project),
         args::Subcommands::List { } => command::list(),
+        args::Subcommands::Prompt { } => command::prompt(),
         args::Subcommands::Remove { project } => command::remove(project),
         args::Subcommands::Show { } => command::show(),
     }
