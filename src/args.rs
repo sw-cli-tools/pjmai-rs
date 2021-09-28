@@ -1,3 +1,4 @@
+use crate::{ProjectName, ProjectPath};
 use log::info;
 use std::env;
 
@@ -41,10 +42,10 @@ pub enum Subcommands {
     Add {
         #[structopt(long, short)]
         /// Names the project (a short alias for the project)
-        project: String,
+        project: ProjectName,
         #[structopt(long, short)]
         /// File name to be sourced for project (e.g., to set environment variables)
-        file_or_dir: String,
+        file_or_dir: ProjectPath,
     },
     /// Changes to the specified project (changes directory or sources file); alias chpj
     #[structopt(
@@ -55,7 +56,7 @@ pub enum Subcommands {
     Change {
         #[structopt(long, short)]
         /// Removes project with this name
-        project: String,
+        project: ProjectName,
     },
     /// Lists the previously added projects; alias lspj
     #[structopt(
@@ -80,7 +81,7 @@ pub enum Subcommands {
     Remove {
         #[structopt(long, short)]
         /// Removes project with this name
-        project: String,
+        project: ProjectName,
     },
     /// Shows the previously changed-to project; alias shpj
     #[structopt(

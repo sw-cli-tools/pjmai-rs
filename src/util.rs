@@ -1,5 +1,6 @@
 use crate::io;
 use crate::projects;
+use crate::{ProjectPath, SerializedConfig};
 use log::info;
 
 pub fn check() {
@@ -17,7 +18,7 @@ pub fn check() {
     info!("using config file at {}", &projects_file_path());
 }
 
-pub fn expand_file_path(file_path: &str) -> String {
+pub fn expand_file_path(file_path: &str) -> ProjectPath {
     info!("expand file path {}", &file_path);
     if file_path.starts_with('~') {
         let home = std::env::var("HOME").unwrap();
@@ -65,7 +66,7 @@ pub fn shorten_path(long_path: &str) -> String {
                 result.push(char);
             }
         }
-        short_path = "~".to_string() + &result.iter().collect::<String>();
+        short_path = "~".to_string() + &result.iter().collect::<ProjectPath>();
     } else {
         short_path = long_path.to_string();
     }
@@ -80,12 +81,12 @@ fn env_home() -> String {
     }
 }
 
-fn initial_config_toml() -> String {
+fn initial_config_toml() -> SerializedConfig {
     info!("initial config toml");
     projects::ProjectsRegistry::new().ser()
 }
 
-fn projects_file_contents() -> String {
+fn projects_file_contents() -> SerializedConfig {
     info!("projects file contents");
     match io::read(projects_file_path()) {
         Ok(projects_string) => projects_string,

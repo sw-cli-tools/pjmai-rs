@@ -4,3 +4,7 @@ pub mod config;
 pub mod io;
 pub mod projects;
 pub mod util;
+
+type ProjectName = String;
+type ProjectPath = String;
+type SerializedConfig = String;
