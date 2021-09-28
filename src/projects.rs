@@ -1,3 +1,4 @@
+use log::info;
 use serde_derive::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
@@ -24,12 +25,14 @@ impl ProjectsRegistry {
         }
     }
     pub fn ser(&self) -> String {
+        info!("serialize");
         match toml::to_string(self) {
             Ok(s) => s,
             Err(e) => panic!("ser e={}", e),
         }
     }
     pub fn deser(s: String) -> Self {
+        info!("deserialize");
         toml::from_str(&s).unwrap()
     }
 }

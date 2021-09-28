@@ -1,3 +1,4 @@
+use log::info;
 use std::env;
 
 use structopt::StructOpt;
@@ -63,12 +64,6 @@ pub enum Subcommands {
         help("lspj # lists all projects added by adpj")
     )]
     List {},
-    /// Removes a previously created project from the projects configuration; alias rmpj
-    #[structopt(
-        name = "remove",
-        alias = "r",
-        help("rmpj name # removes named project")
-    )]
     /// Prompt string for previously changed-to project; alias prpj
     #[structopt(
         name = "prompt",
@@ -76,6 +71,12 @@ pub enum Subcommands {
         help("prpj # prompt for current project switched to by chpj")
     )]
     Prompt {},
+    /// Removes a previously created project from the projects configuration; alias rmpj
+    #[structopt(
+        name = "remove",
+        alias = "r",
+        help("rmpj name # removes named project")
+    )]
     Remove {
         #[structopt(long, short)]
         /// Removes project with this name
@@ -90,7 +91,10 @@ pub enum Subcommands {
     Show {},
 }
 pub fn parse_args() -> Args {
-    Args::from_args()
+    info!("parsing args...");
+    let r = Args::from_args();
+    info!("args: {:?}", &r);
+    r
 }
 #[cfg(test)]
 mod tests {
