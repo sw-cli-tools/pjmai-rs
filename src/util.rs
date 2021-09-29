@@ -1,23 +1,25 @@
 use crate::io;
 use crate::projects;
-use crate::{ProjectPath, SerializedConfig};
+use crate::{ProjectPath, SerializedRegistry};
 use log::info;
 
+/// Check for serialized registry
 pub fn check() {
-    info!("create or use config file (or quit)");
+    info!("create or use registry file (or quit)");
     if !is_file_found(&projects_file_path()) {
-        info!("config file not found");
+        info!("registry file not found");
         if prompt_create_yes_no() {
-            info!("creating config file");
+            info!("creating registry file");
             save_config_toml(&initial_config_toml());
         } else {
-            info!("cannot continue without config file");
+            info!("cannot continue without registry file");
             std::process::exit(0);
         }
     }
-    info!("using config file at {}", &projects_file_path());
+    info!("using registry file at {}", &projects_file_path());
 }
 
+/// Expand file path to be absolute
 pub fn expand_file_path(file_path: &str) -> ProjectPath {
     info!("expand file path {}", &file_path);
     if file_path.starts_with('~') {
@@ -29,21 +31,25 @@ pub fn expand_file_path(file_path: &str) -> ProjectPath {
     }
 }
 
+/// Determine if a path is a file or a directory
 pub fn is_file_dir(file_path: &str) -> bool {
     info!("is file dir? {}", &file_path);
     std::fs::metadata(file_path).unwrap().is_dir()
 }
 
+/// Determine if the file or directory exists
 pub fn is_file_found(file_path: &str) -> bool {
     info!("is file found? {}", &file_path);
     std::path::Path::new(&file_path).exists()
 }
 
+/// Reload a registry
 pub fn projects() -> projects::ProjectsRegistry {
     info!("projects");
     projects::ProjectsRegistry::deser(projects_file_contents())
 }
 
+/// Save the projects registry
 pub fn save_config_toml(projects_string: &str) {
     info!("save config toml");
     match io::write(projects_string, &projects_file_path()) {
@@ -52,6 +58,7 @@ pub fn save_config_toml(projects_string: &str) {
     }
 }
 
+/// Shorten an absolute path to one relative to $HOME
 pub fn shorten_path(long_path: &str) -> String {
     info!("shorten_path {}", &long_path);
     let short_path;
@@ -81,12 +88,12 @@ fn env_home() -> String {
     }
 }
 
-fn initial_config_toml() -> SerializedConfig {
+fn initial_config_toml() -> SerializedRegistry {
     info!("initial config toml");
     projects::ProjectsRegistry::new().ser()
 }
 
-fn projects_file_contents() -> SerializedConfig {
+fn projects_file_contents() -> SerializedRegistry {
     info!("projects file contents");
     match io::read(projects_file_path()) {
         Ok(projects_string) => projects_string,

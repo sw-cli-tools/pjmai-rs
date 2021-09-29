@@ -1,8 +1,11 @@
+//! Project Management tool
+#![deny(warnings, missing_docs)]
 use log::info;
 use pjm1::args;
 use pjm1::command;
 use pjm1::config;
 
+/// entry
 fn main() {
     env_logger::init();
     info!(target:"pjm1::main", "env_logger initialized");

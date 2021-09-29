@@ -17,6 +17,7 @@ for more details:
  shpj --help
 ",
     version = generated_version())]
+/// Argument parsing 
 pub struct Args {
     #[structopt(long, short)]
     /// Prints debugging info.  -d must preceed subcommands
@@ -24,10 +25,13 @@ pub struct Args {
     #[structopt(long, short)]
     /// Logs to a log file.  -l must preceed subcommands
     pub logging: bool,
+
+    /// The specified command
     #[structopt(subcommand)]
     pub command: Subcommands,
 }
 
+/// Subcommands
 #[derive(Debug, PartialEq, StructOpt)]
 pub enum Subcommands {
     /// Shows help for aliases: adpj, chpj, hlpj, lspj, and rmpj; alias hlpj
@@ -91,6 +95,8 @@ pub enum Subcommands {
     )]
     Show {},
 }
+
+/// Parse supplied arguments
 pub fn parse_args() -> Args {
     info!("parsing args...");
     let r = Args::from_args();

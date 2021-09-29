@@ -1,38 +1,55 @@
-use crate::{ProjectName, ProjectPath, SerializedConfig};
+use crate::{ProjectName, ProjectPath, SerializedRegistry};
 use log::info;
 use serde_derive::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
+/// The project registry 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ProjectsRegistry {
+    /// The project version
     pub version: String,
+    /// The currently active project, if any
     pub current_project: ProjectName,
+    /// The known projects
     pub project: Vec<ChangeToProject>,
 }
+
+/// A project
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ChangeToProject {
+    /// The project name
     pub name: ProjectName, // must preceed action or toml serialization fails
+    /// The associated project action
     pub action: Action,
 }
+
+/// An action associated with a project
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Action {
+    /// A file to source or a directory to switch to
     pub file_or_dir: ProjectPath,
 }
+
 impl ProjectsRegistry {
+    /// Create a new Registry with zero projects
     pub fn new() -> Self {
         ProjectsRegistry {
             version: generated_version().to_string(),
             ..Default::default()
         }
     }
-    pub fn ser(&self) -> SerializedConfig {
+
+    /// Serialize the registery 
+    pub fn ser(&self) -> SerializedRegistry {
         info!("serialize");
         match toml::to_string(self) {
             Ok(s) => s,
             Err(e) => panic!("ser e={}", e),
         }
     }
-    pub fn deser(s: SerializedConfig) -> Self {
+
+    /// Load a serialized registry
+    pub fn deser(s: SerializedRegistry) -> Self {
         info!("deserialize");
         toml::from_str(&s).unwrap()
     }

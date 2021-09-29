@@ -3,6 +3,7 @@ use crate::util;
 use colored::Colorize;
 use log::info;
 
+/// Add a project
 pub fn add(project_name: &str, file_name: &str) {
     info!("adding {} -f {}", &project_name, &file_name);
     let mut projects = util::projects();
@@ -25,6 +26,7 @@ pub fn add(project_name: &str, file_name: &str) {
     info!("add done");
 }
 
+/// List aliases
 pub fn aliases() {
     info!("aliases");
     println!("adpj <name> -f <dir|file> # alias for pjm1 add");
@@ -37,6 +39,7 @@ pub fn aliases() {
     info!("aliases done");
 }
 
+/// Changes to the specified project
 pub fn change(project_name: &str) {
     info!("changing to project {}", &project_name);
     let mut projects = util::projects();
@@ -66,6 +69,7 @@ pub fn change(project_name: &str) {
     std::process::exit(4) // bash wrapper will echo the error
 }
 
+/// Lists known projects
 pub fn list() {
     info!("listing all projects");
     let mut projects = util::projects();
@@ -92,6 +96,7 @@ pub fn list() {
     info!("listing done");
 }
 
+/// Return the prompt indicator for the current project
 pub fn prompt() {
     info!("prompt");
     let projects = util::projects();
@@ -103,6 +108,7 @@ pub fn prompt() {
     info!("prompt done");
 }
 
+/// Remove the specified project
 pub fn remove(unwanted_project_name: &str) {
     info!("remove {}", &unwanted_project_name);
     let mut dirty = false;
@@ -130,6 +136,7 @@ pub fn remove(unwanted_project_name: &str) {
     info!("remove done");
 }
 
+/// Show the name and path for the current project
 pub fn show() {
     info!("showing current project");
     let projects = util::projects();

@@ -7,7 +7,8 @@ fn main() {
     let dest_path = Path::new(&out_dir).join("generated.rs");
     let version = format!("0.1.0-dev-{}", chrono::Local::now()); // build time
     let version_fn = format!(
-        "pub fn generated_version() -> &'static str {{ \"{}\" }}",
+        "/// Version 
+pub fn generated_version() -> &'static str {{ \"{}\" }}",
         version
     );
     fs::write(&dest_path, version_fn).unwrap();
