@@ -1,12 +1,37 @@
 use crate::io;
 use crate::projects;
-use crate::{ProjectPath, SerializedRegistry};
+use crate::{PjmConfig, ProjectPath, SerializedRegistry};
 use log::info;
+use std::sync::OnceLock;
+
+/// Global config instance
+static CONFIG: OnceLock<PjmConfig> = OnceLock::new();
+
+/// Initialize the global config
+pub fn init_config(config: PjmConfig) {
+    CONFIG.set(config).expect("Config already initialized");
+}
+
+/// Get the global config
+fn get_config() -> &'static PjmConfig {
+    CONFIG.get().expect("Config not initialized")
+}
 
 /// Check for serialized registry
 pub fn check() {
     info!("create or use registry file (or quit)");
-    if !is_file_found(&projects_file_path()) {
+    let config = get_config();
+    let config_file = config.config_file_path();
+
+    // Create config directory if it doesn't exist
+    if !is_file_found(&config.config_dir) {
+        info!("config directory not found, creating: {}", &config.config_dir);
+        if let Err(e) = std::fs::create_dir_all(&config.config_dir) {
+            panic!("Failed to create config directory {}: {}", &config.config_dir, e);
+        }
+    }
+
+    if !is_file_found(&config_file) {
         info!("registry file not found");
         if prompt_create_yes_no() {
             info!("creating registry file");
@@ -16,7 +41,7 @@ pub fn check() {
             std::process::exit(0);
         }
     }
-    info!("using registry file at {}", &projects_file_path());
+    info!("using registry file at {}", &config_file);
 }
 
 /// Expand file path to be absolute
@@ -52,7 +77,8 @@ pub fn projects() -> projects::ProjectsRegistry {
 /// Save the projects registry
 pub fn save_config_toml(projects_string: &str) {
     info!("save config toml");
-    match io::write(projects_string, &projects_file_path()) {
+    let config_file = get_config().config_file_path();
+    match io::write(projects_string, &config_file) {
         Ok(()) => (),
         Err(e) => panic!("unable to write file, e={}", e),
     }
@@ -61,29 +87,11 @@ pub fn save_config_toml(projects_string: &str) {
 /// Shorten an absolute path to one relative to $HOME
 pub fn shorten_path(long_path: &str) -> String {
     info!("shorten_path {}", &long_path);
-    let home = std::env::var("HOME").unwrap_or_else(|_| "".to_string());
-    if long_path.starts_with(&home) {
-        let mut skip = home.len();
-        let mut result = vec![];
-        for char in long_path.chars() {
-            if skip > 0 {
-                skip -= 1;
-            } else {
-                result.push(char);
-            }
-        }
-        "~".to_string() + &result.iter().collect::<ProjectPath>()
-    } else {
-        long_path.to_string()
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() && let Some(suffix) = long_path.strip_prefix(&home) {
+        return format!("~{}", suffix);
     }
-}
-
-fn env_home() -> String {
-    info!("env_home");
-    match std::env::var("HOME") {
-        Ok(home) => home,
-        Err(e) => panic!("couldn't read environment variable HOME, e={}", e),
-    }
+    long_path.to_string()
 }
 
 fn initial_config_toml() -> SerializedRegistry {
@@ -93,15 +101,11 @@ fn initial_config_toml() -> SerializedRegistry {
 
 fn projects_file_contents() -> SerializedRegistry {
     info!("projects file contents");
-    match io::read(projects_file_path()) {
+    let config_file = get_config().config_file_path();
+    match io::read(config_file) {
         Ok(projects_string) => projects_string,
         Err(e) => panic!("unable to read projects, e={}", e),
     }
-}
-
-fn projects_file_path() -> String {
-    info!("projects file path");
-    format!("{}/.pjm/config.toml", env_home())
 }
 
 fn prompt_create_yes_no() -> bool {

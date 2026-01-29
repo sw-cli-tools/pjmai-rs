@@ -7,10 +7,22 @@ use log::info;
 pub fn add(project_name: &str, file_name: &str) {
     info!("adding {} -f {}", &project_name, &file_name);
     let mut projects = util::projects();
-    if is_dup(project_name) {
+
+    // Check for duplicate project name (using already loaded projects)
+    if is_dup(project_name, &projects) {
         info!("adding dup failed");
         panic!("cannot add duplicate project name {}", &project_name);
     }
+
+    // Validate that the file or directory exists
+    let expanded_path = util::expand_file_path(file_name);
+    if !util::is_file_found(&expanded_path) {
+        panic!(
+            "cannot add project: file or directory '{}' does not exist",
+            &expanded_path
+        );
+    }
+
     info!("push");
     projects.project.push(projects::ChangeToProject {
         action: projects::Action {
@@ -100,10 +112,8 @@ pub fn list() {
 pub fn prompt() {
     info!("prompt");
     let projects = util::projects();
-    for project in &projects.project {
-        if project.name == projects.current_project {
-            println!("{}", project.name);
-        }
+    if !projects.current_project.is_empty() {
+        println!("{}", projects.current_project);
     }
     info!("prompt done");
 }
@@ -162,9 +172,9 @@ pub fn show() {
     info!("show done");
 }
 
-fn is_dup(check_project_name: &str) -> bool {
+fn is_dup(check_project_name: &str, projects: &projects::ProjectsRegistry) -> bool {
     info!("is_dup {}", &check_project_name);
-    for project in &util::projects().project {
+    for project in &projects.project {
         if project.name == check_project_name {
             return true;
         }

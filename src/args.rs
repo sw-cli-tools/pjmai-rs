@@ -102,4 +102,189 @@ mod tests {
             Args::try_parse_from(["test", "add", "-p", "pjm1", "-f", "~/gh/wma/pjm1"]).unwrap()
         );
     }
+
+    #[test]
+    fn test_add_with_alias() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Add {
+                    project: "myproject".to_string(),
+                    file_or_dir: "/tmp/project".to_string(),
+                },
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "a", "-p", "myproject", "-f", "/tmp/project"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_change() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Change {
+                    project: "myproject".to_string(),
+                },
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "change", "-p", "myproject"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_change_with_alias() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Change {
+                    project: "foo".to_string(),
+                },
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "c", "-p", "foo"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_list() {
+        assert_eq!(
+            Args {
+                command: Subcommands::List {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "list"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_list_with_alias() {
+        assert_eq!(
+            Args {
+                command: Subcommands::List {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "l"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_remove() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Remove {
+                    project: "oldproject".to_string(),
+                },
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "remove", "-p", "oldproject"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_remove_with_alias() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Remove {
+                    project: "bar".to_string(),
+                },
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "r", "-p", "bar"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_show() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Show {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "show"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_show_with_alias() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Show {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "s"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_prompt() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Prompt {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "prompt"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_prompt_with_alias() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Prompt {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "p"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_aliases() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Aliases {},
+                debug: false,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "aliases"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_logging_flag() {
+        assert_eq!(
+            Args {
+                command: Subcommands::List {},
+                debug: false,
+                logging: true,
+            },
+            Args::try_parse_from(["test", "-l", "list"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_long_logging_flag() {
+        assert_eq!(
+            Args {
+                command: Subcommands::List {},
+                debug: false,
+                logging: true,
+            },
+            Args::try_parse_from(["test", "--logging", "list"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_debug_flag_present() {
+        let args = Args::try_parse_from(["test", "-d", "list"]).unwrap();
+        assert!(args.debug);
+    }
 }
