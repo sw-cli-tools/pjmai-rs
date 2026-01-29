@@ -1,10 +1,11 @@
 #!/bin/sh
-# https://stackoverflow.com/questions/3515208/can-colorized-output-be-captured-via-shell-redirect
+# Shell integration for PJM1 - provides wrapper function and aliases
+# Works with both bash and zsh
 function pjm_fn() {
-    PJM_ARGS="$@"
-    #    PJM_OUT=`script --flush --quiet --return /tmp/pjm1-out.txt --command "pjm1 ${PJM_ARGS}"`
-    PJM_OUT=`pjm1 ${PJM_ARGS}`
-    case "$?" in
+    # Use "$@" directly to preserve argument splitting in both bash and zsh
+    PJM_OUT=$(pjm1 "$@")
+    PJM_EXIT=$?
+    case "$PJM_EXIT" in
         2)
             cd "${PJM_OUT}"
             ;;
