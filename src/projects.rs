@@ -1,9 +1,10 @@
 use crate::{ProjectName, ProjectPath, SerializedRegistry};
 use log::info;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
+
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
-/// The project registry 
+/// The project registry
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ProjectsRegistry {
     /// The project version
@@ -18,7 +19,7 @@ pub struct ProjectsRegistry {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ChangeToProject {
     /// The project name
-    pub name: ProjectName, // must preceed action or toml serialization fails
+    pub name: ProjectName, // must precede action or toml serialization fails
     /// The associated project action
     pub action: Action,
 }
@@ -39,7 +40,7 @@ impl ProjectsRegistry {
         }
     }
 
-    /// Serialize the registery 
+    /// Serialize the registry
     pub fn ser(&self) -> SerializedRegistry {
         info!("serialize");
         match toml::to_string(self) {

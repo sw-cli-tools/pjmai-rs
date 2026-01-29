@@ -61,7 +61,6 @@ pub fn save_config_toml(projects_string: &str) {
 /// Shorten an absolute path to one relative to $HOME
 pub fn shorten_path(long_path: &str) -> String {
     info!("shorten_path {}", &long_path);
-    let short_path;
     let home = std::env::var("HOME").unwrap_or_else(|_| "".to_string());
     if long_path.starts_with(&home) {
         let mut skip = home.len();
@@ -73,11 +72,10 @@ pub fn shorten_path(long_path: &str) -> String {
                 result.push(char);
             }
         }
-        short_path = "~".to_string() + &result.iter().collect::<ProjectPath>();
+        "~".to_string() + &result.iter().collect::<ProjectPath>()
     } else {
-        short_path = long_path.to_string();
+        long_path.to_string()
     }
-    short_path
 }
 
 fn env_home() -> String {
@@ -108,7 +106,7 @@ fn projects_file_path() -> String {
 
 fn prompt_create_yes_no() -> bool {
     info!("create yes/no");
-    use std::io::{stdin, stdout, Write};
+    use std::io::{Write, stdin, stdout};
 
     print!("create Y/n> ");
     stdout().flush().expect("flush stdout");

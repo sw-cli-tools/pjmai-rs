@@ -102,7 +102,7 @@ pub fn prompt() {
     let projects = util::projects();
     for project in &projects.project {
         if project.name == projects.current_project {
-            println!("{}", project.name.to_string());
+            println!("{}", project.name);
         }
     }
     info!("prompt done");
@@ -111,9 +111,10 @@ pub fn prompt() {
 /// Remove the specified project
 pub fn remove(unwanted_project_name: &str) {
     info!("remove {}", &unwanted_project_name);
-    let mut dirty = false;
     let old_projects = util::projects();
     let mut new_projects = projects::ProjectsRegistry::new();
+    let mut found = false;
+
     for project in &old_projects.project {
         if project.name != unwanted_project_name {
             info!("keeping {}", &project.name);
@@ -123,13 +124,17 @@ pub fn remove(unwanted_project_name: &str) {
                 },
                 name: project.name.to_string(),
             });
-        } else if project.name != old_projects.current_project {
+        } else {
             info!("discarding {}", &project.name);
-            dirty = true;
-            new_projects.current_project = old_projects.current_project.to_string();
+            found = true;
         }
     }
-    if dirty {
+
+    if found {
+        // Preserve current_project unless we just removed it
+        if old_projects.current_project != unwanted_project_name {
+            new_projects.current_project = old_projects.current_project.clone();
+        }
         info!("saving changes");
         util::save_config_toml(&new_projects.ser());
     }
