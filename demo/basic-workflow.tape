@@ -3,6 +3,7 @@
 # Run ./demo/setup-demo.sh before recording this tape
 
 Output demo/basic-workflow.gif
+Output demo/basic-workflow.mp4
 
 Set Shell "bash"
 Set FontSize 14

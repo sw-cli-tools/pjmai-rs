@@ -3,6 +3,7 @@
 # Run ./demo/setup-demo.sh before recording this tape
 
 Output demo/project-management.gif
+Output demo/project-management.mp4
 
 Set Shell "bash"
 Set FontSize 14

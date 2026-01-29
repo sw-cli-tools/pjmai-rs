@@ -3,6 +3,7 @@
 # Run ./demo/setup-demo.sh before recording this tape
 
 Output demo/error-handling.gif
+Output demo/error-handling.mp4
 
 Set Shell "bash"
 Set FontSize 14
