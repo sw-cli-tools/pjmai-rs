@@ -4,7 +4,7 @@
 
 Output demo/error-handling.gif
 
-Set Shell "zsh"
+Set Shell "bash"
 Set FontSize 14
 Set Width 900
 Set Height 400

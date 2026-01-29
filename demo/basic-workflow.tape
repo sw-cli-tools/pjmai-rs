@@ -4,7 +4,7 @@
 
 Output demo/basic-workflow.gif
 
-Set Shell "zsh"
+Set Shell "bash"
 Set FontSize 14
 Set Width 800
 Set Height 400
