@@ -1,10 +1,10 @@
 # Project Management Demo
-# This tape demonstrates managing multiple projects and removing them
+# This tape demonstrates managing multiple projects using shell aliases
 # Run ./demo/setup-demo.sh before recording this tape
 
 Output demo/project-management.gif
 
-Set Shell "bash"
+Set Shell "zsh"
 Set FontSize 14
 Set Width 800
 Set Height 450
@@ -12,28 +12,33 @@ Set Theme "Dracula"
 Set TypingSpeed 50ms
 
 Env PJM_CONFIG_DIR "/tmp/pjm1-demo"
+Env PATH "/Users/mike/github/wrightmikea/pjm1/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
-Type "# Managing multiple projects with PJM1"
+Type "# Source shell integration for aliases"
 Enter
-Sleep 1s
+Sleep 300ms
 
-Type "# Add several projects"
+Type "source ./source-pjm.sh"
 Enter
 Sleep 500ms
 
-Type "./target/release/pjm1 add -p proj-a -f /tmp/demo-projects/project-a"
+Type "# Add several projects with 'adpj'"
+Enter
+Sleep 500ms
+
+Type "adpj proj-a -f /tmp/demo-projects/project-a"
 Enter
 Sleep 700ms
 
-Type "./target/release/pjm1 add -p proj-b -f /tmp/demo-projects/project-b"
+Type "adpj proj-b -f /tmp/demo-projects/project-b"
 Enter
 Sleep 700ms
 
-Type "./target/release/pjm1 add -p proj-c -f /tmp/demo-projects/project-c"
+Type "adpj proj-c -f /tmp/demo-projects/project-c"
 Enter
 Sleep 700ms
 
-Type "./target/release/pjm1 add -p temp -f /tmp/demo-projects/temp-project"
+Type "adpj temp -f /tmp/demo-projects/temp-project"
 Enter
 Sleep 700ms
 
@@ -41,15 +46,15 @@ Type "# List all projects (sorted alphabetically)"
 Enter
 Sleep 500ms
 
-Type "./target/release/pjm1 list"
+Type "lspj"
 Enter
 Sleep 1.5s
 
-Type "# Remove the temporary project"
+Type "# Remove a project with 'rmpj'"
 Enter
 Sleep 500ms
 
-Type "./target/release/pjm1 remove -p temp"
+Type "rmpj temp"
 Enter
 Sleep 1s
 
@@ -57,6 +62,6 @@ Type "# Verify it is gone"
 Enter
 Sleep 500ms
 
-Type "./target/release/pjm1 list"
+Type "lspj"
 Enter
 Sleep 2s

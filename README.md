@@ -2,6 +2,8 @@
 
 A Rust CLI tool for managing and quickly switching between projects via shell aliases.
 
+![PJM1 Full Workflow Demo](demo/full-workflow.gif)
+
 ## Overview
 
 PJM1 helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands.
@@ -18,36 +20,51 @@ cd pjm1
 # Build the binary
 cargo build --release
 
-# Copy to your PATH
+# Copy to your PATH (create ~/.local/bin if needed)
+mkdir -p ~/.local/bin
 cp target/release/pjm1 ~/.local/bin/
 ```
 
-### Shell Integration
+### Shell Integration (Required)
 
-Add the following to your `~/.bashrc` or `~/.zshrc`:
+Add the following to your shell's rc file:
 
+**For Zsh (~/.zshrc) on macOS:**
 ```bash
+# PJM1 project management
+export PATH="$HOME/.local/bin:$PATH"
 source /path/to/pjm1/source-pjm.sh
 ```
 
-This enables the shell aliases and allows PJM1 to change your working directory.
+**For Bash (~/.bashrc) on Linux:**
+```bash
+# PJM1 project management
+export PATH="$HOME/.local/bin:$PATH"
+source /path/to/pjm1/source-pjm.sh
+```
+
+Then reload your shell: `source ~/.zshrc` (or `~/.bashrc`)
+
+This sets up:
+- Shell aliases (`adpj`, `chpj`, `lspj`, etc.)
+- A wrapper function that allows PJM1 to change your working directory
 
 ## Quick Start
 
 ```bash
-# Add your first project
-adpj -p myproject -f ~/code/myproject
+# Add your first project (config created automatically on first use)
+adpj myproject -f ~/code/myproject
 
 # List all projects
 lspj
 
-# Switch to a project
-chpj -p myproject
+# Switch to a project (changes directory)
+chpj myproject
 
 # Show current project
 shpj
 
-# Get project name for shell prompt
+# Get project name (for shell prompts)
 prpj
 ```
 
@@ -211,10 +228,11 @@ brew install vhs
 ./demo/setup-demo.sh
 
 # Record a demo
-vhs demo/basic-workflow.tape
+vhs demo/full-workflow.tape
 ```
 
 Available demos:
+- `full-workflow.tape` - Complete walkthrough: installation, adding, switching, and removing projects
 - `basic-workflow.tape` - Core commands: add, list, show, prompt
 - `project-management.tape` - Adding and removing projects
 - `error-handling.tape` - Error messages for invalid operations

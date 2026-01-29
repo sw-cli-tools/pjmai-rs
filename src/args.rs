@@ -33,7 +33,7 @@ pub struct Args {
 /// Subcommands
 #[derive(Debug, PartialEq, Subcommand)]
 pub enum Subcommands {
-    /// Shows help for aliases: adpj, chpj, hlpj, lspj, and rmpj; alias hlpj
+    /// Shows help for aliases: adpj, chpj, hlpj, lspj, prpj, rmpj, shpj; alias hlpj
     #[command(name = "aliases")]
     Aliases {},
 
