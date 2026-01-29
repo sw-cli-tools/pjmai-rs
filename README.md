@@ -2,8 +2,6 @@
 
 A Rust CLI tool for managing and quickly switching between projects via shell aliases.
 
-![PJM1 Full Workflow Demo](demo/full-workflow.gif)
-
 ## Overview
 
 PJM1 helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands.

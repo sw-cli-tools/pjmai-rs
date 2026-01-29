@@ -1,1 +1,5 @@
 /target
+
+# VHS demo output files (generated locally)
+demo/*.gif
+demo/*.mp4
