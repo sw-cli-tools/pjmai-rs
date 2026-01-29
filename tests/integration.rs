@@ -476,3 +476,111 @@ file_or_dir = "{}"
         .code(3)
         .stdout(predicate::str::contains(proj_file.to_str().unwrap()));
 }
+
+// ============================================================
+// Fuzzy matching tests
+// ============================================================
+
+#[test]
+fn test_change_with_prefix_match() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("webapp");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "webapp"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // "web" should match "webapp" via prefix
+    pjm1_cmd(&temp_dir)
+        .args(["change", "-p", "web"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::contains(proj_dir.to_str().unwrap()));
+}
+
+#[test]
+fn test_change_with_case_insensitive_match() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("MyProject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "MyProject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // "myproject" should match "MyProject" case-insensitively
+    pjm1_cmd(&temp_dir)
+        .args(["change", "-p", "myproject"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::contains(proj_dir.to_str().unwrap()));
+}
+
+#[test]
+fn test_change_with_ambiguous_match() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj1 = temp_dir.path().join("webapp");
+    let proj2 = temp_dir.path().join("webapi");
+    fs::create_dir(&proj1).unwrap();
+    fs::create_dir(&proj2).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "webapp"
+
+[project.action]
+file_or_dir = "{}"
+
+[[project]]
+name = "webapi"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj1.display(),
+            proj2.display()
+        ),
+    )
+    .unwrap();
+
+    // "web" should be ambiguous (matches both webapp and webapi)
+    pjm1_cmd(&temp_dir)
+        .args(["change", "-p", "web"])
+        .assert()
+        .code(4)
+        .stdout(predicate::str::contains("ambiguous"))
+        .stdout(predicate::str::contains("webapp"))
+        .stdout(predicate::str::contains("webapi"));
+}

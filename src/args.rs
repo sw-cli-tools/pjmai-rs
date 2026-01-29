@@ -1,6 +1,8 @@
 use crate::{ProjectName, ProjectPath};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{Shell, generate};
 use log::info;
+use std::io;
 
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
@@ -55,6 +57,14 @@ pub enum Subcommands {
         project: ProjectName,
     },
 
+    /// Generate shell completions for bash, zsh, fish, elvish, or powershell
+    #[command(name = "completions")]
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+
     /// Lists the previously added projects; alias lspj
     #[command(name = "list", alias = "l")]
     List {},
@@ -74,6 +84,12 @@ pub enum Subcommands {
     /// Shows the previously changed-to project; alias shpj
     #[command(name = "show", alias = "s")]
     Show {},
+}
+
+/// Generate shell completions to stdout
+pub fn print_completions(shell: Shell) {
+    let mut cmd = Args::command();
+    generate(shell, &mut cmd, "pjm1", &mut io::stdout());
 }
 
 /// Parse supplied arguments

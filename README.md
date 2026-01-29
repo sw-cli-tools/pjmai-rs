@@ -62,6 +62,25 @@ prpj
 | `pjm1 show` | `shpj` | Show current project |
 | `pjm1 prompt` | `prpj` | Output current project name (for prompts) |
 | `pjm1 aliases` | `hlpj` | Show all available aliases |
+| `pjm1 completions <shell>` | - | Generate shell completions |
+
+## Shell Completions
+
+Generate and install shell completions for tab-completion support:
+
+```bash
+# Bash (add to ~/.bashrc)
+pjm1 completions bash > ~/.local/share/bash-completion/completions/pjm1
+
+# Zsh (add to ~/.zshrc or a file in your fpath)
+pjm1 completions zsh > ~/.zsh/completions/_pjm1
+
+# Fish
+pjm1 completions fish > ~/.config/fish/completions/pjm1.fish
+
+# PowerShell
+pjm1 completions powershell >> $PROFILE
+```
 
 ## Usage Scenarios
 
@@ -87,7 +106,18 @@ chpj -p webapp
 
 # Switch to devenv (sources the environment file)
 chpj -p devenv
+
+# Fuzzy matching: partial names work too
+chpj -p web      # matches "webapp" if unique
+chpj -p WEBAPP   # case-insensitive matching
 ```
+
+The `change` command supports fuzzy matching:
+- **Exact match**: `webapp` matches project named "webapp"
+- **Case-insensitive**: `WEBAPP` matches "webapp"
+- **Prefix match**: `web` matches "webapp" (if unique)
+- **Substring match**: `app` matches "webapp" (if unique)
+- **Ambiguous**: If multiple projects match, shows all matches
 
 ### Shell Prompt Integration
 

@@ -1,3 +1,4 @@
+use crate::error::{PjmError, Result};
 use crate::{ProjectName, ProjectPath, SerializedRegistry};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -41,17 +42,14 @@ impl ProjectsRegistry {
     }
 
     /// Serialize the registry
-    pub fn ser(&self) -> SerializedRegistry {
+    pub fn ser(&self) -> Result<SerializedRegistry> {
         info!("serialize");
-        match toml::to_string(self) {
-            Ok(s) => s,
-            Err(e) => panic!("ser e={}", e),
-        }
+        toml::to_string(self).map_err(|e| PjmError::ConfigSerialize(e.to_string()))
     }
 
     /// Load a serialized registry
-    pub fn deser(s: SerializedRegistry) -> Self {
+    pub fn deser(s: SerializedRegistry) -> Result<Self> {
         info!("deserialize");
-        toml::from_str(&s).unwrap()
+        toml::from_str(&s).map_err(|e| PjmError::ConfigParse(e.to_string()))
     }
 }

@@ -10,6 +10,9 @@ pub mod command;
 /// Configuration
 pub mod config;
 
+/// Error types
+pub mod error;
+
 /// I/O functions
 pub mod io;
 

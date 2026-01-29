@@ -1,3 +1,4 @@
+use crate::error::{PjmError, Result};
 use crate::io;
 use crate::projects;
 use crate::{PjmConfig, ProjectPath, SerializedRegistry};
@@ -18,7 +19,7 @@ fn get_config() -> &'static PjmConfig {
 }
 
 /// Check for serialized registry
-pub fn check() {
+pub fn check() -> Result<()> {
     info!("create or use registry file (or quit)");
     let config = get_config();
     let config_file = config.config_file_path();
@@ -26,22 +27,22 @@ pub fn check() {
     // Create config directory if it doesn't exist
     if !is_file_found(&config.config_dir) {
         info!("config directory not found, creating: {}", &config.config_dir);
-        if let Err(e) = std::fs::create_dir_all(&config.config_dir) {
-            panic!("Failed to create config directory {}: {}", &config.config_dir, e);
-        }
+        std::fs::create_dir_all(&config.config_dir)
+            .map_err(|e| PjmError::ConfigDirCreation(config.config_dir.clone(), e))?;
     }
 
     if !is_file_found(&config_file) {
         info!("registry file not found");
         if prompt_create_yes_no() {
             info!("creating registry file");
-            save_config_toml(&initial_config_toml());
+            save_config_toml(&initial_config_toml()?)?;
         } else {
             info!("cannot continue without registry file");
             std::process::exit(0);
         }
     }
     info!("using registry file at {}", &config_file);
+    Ok(())
 }
 
 /// Expand file path to be absolute
@@ -69,19 +70,16 @@ pub fn is_file_found(file_path: &str) -> bool {
 }
 
 /// Reload a registry
-pub fn projects() -> projects::ProjectsRegistry {
+pub fn projects() -> Result<projects::ProjectsRegistry> {
     info!("projects");
-    projects::ProjectsRegistry::deser(projects_file_contents())
+    projects::ProjectsRegistry::deser(projects_file_contents()?)
 }
 
 /// Save the projects registry
-pub fn save_config_toml(projects_string: &str) {
+pub fn save_config_toml(projects_string: &str) -> Result<()> {
     info!("save config toml");
     let config_file = get_config().config_file_path();
-    match io::write(projects_string, &config_file) {
-        Ok(()) => (),
-        Err(e) => panic!("unable to write file, e={}", e),
-    }
+    io::write(projects_string, &config_file).map_err(PjmError::ConfigWrite)
 }
 
 /// Shorten an absolute path to one relative to $HOME
@@ -94,18 +92,15 @@ pub fn shorten_path(long_path: &str) -> String {
     long_path.to_string()
 }
 
-fn initial_config_toml() -> SerializedRegistry {
+fn initial_config_toml() -> Result<SerializedRegistry> {
     info!("initial config toml");
     projects::ProjectsRegistry::new().ser()
 }
 
-fn projects_file_contents() -> SerializedRegistry {
+fn projects_file_contents() -> Result<SerializedRegistry> {
     info!("projects file contents");
     let config_file = get_config().config_file_path();
-    match io::read(config_file) {
-        Ok(projects_string) => projects_string,
-        Err(e) => panic!("unable to read projects, e={}", e),
-    }
+    io::read(config_file).map_err(PjmError::ConfigRead)
 }
 
 fn prompt_create_yes_no() -> bool {
