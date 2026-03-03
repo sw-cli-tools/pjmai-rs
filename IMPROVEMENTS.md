@@ -1,0 +1,1170 @@
+# PJM1 Improvements Roadmap
+
+## Table of Contents
+
+- [Project Introduction](#project-introduction)
+- [Background](#background)
+- [Current State](#current-state)
+- [Purpose and Goals](#purpose-and-goals)
+- [Current Usage](#current-usage)
+- [Limitations](#limitations)
+- [Improvement Areas](#improvement-areas)
+  - [1. Installation](#1-installation)
+  - [2. Human Usability](#2-human-usability)
+  - [3. AI Agent Usability](#3-ai-agent-usability)
+  - [4. Shell Autocompletion](#4-shell-autocompletion)
+  - [5. Project-Specific Environments](#5-project-specific-environments)
+  - [6. AI Agent Sandboxing](#6-ai-agent-sandboxing)
+  - [7. Project Grouping](#7-project-grouping)
+  - [8. Configuration Management](#8-configuration-management)
+  - [9. AI-Assisted Configuration](#9-ai-assisted-configuration)
+- [Implementation Priority](#implementation-priority)
+- [Technical Architecture Changes](#technical-architecture-changes)
+
+---
+
+## Project Introduction
+
+**PJM1** (Project Manager 1) is a Rust CLI tool for managing and switching between software development projects. It maintains a registry of project "nicknames" mapped to filesystem paths, enabling rapid context switching via short shell aliases.
+
+Key capabilities:
+- **Project Registry**: Store project names with associated paths (directories or setup scripts)
+- **Quick Switching**: Use `chpj <nickname>` to instantly `cd` to a project or source its setup script
+- **Shell Integration**: Exit code signaling allows the CLI to affect the parent shell's environment
+- **Fuzzy Matching**: Find projects by prefix, substring, or case-insensitive matching
+- **Prompt Integration**: Display current project name in your shell prompt
+
+---
+
+## Background
+
+PJM1 is a "clean room" reimplementation of an older project management tool. The original tool was created in an era before AI coding agents, when developer workflows were entirely human-driven.
+
+The world has changed significantly:
+- **AI coding agents** (Claude Code, Cursor, Cody, etc.) now work alongside developers
+- **Sandboxing requirements** are increasingly important when running AI-generated code
+- **Context-aware tooling** helps both humans and AI understand project structure
+- **Environment isolation** (uv, conda, nvm, Docker) is standard practice
+
+This creates an opportunity to evolve PJM1 from a simple project switcher into a comprehensive **project environment manager** that serves both human developers and AI agents.
+
+---
+
+## Current State
+
+### What Works Well
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Add/remove projects | Stable | Full CRUD operations |
+| Switch projects (cd) | Stable | Exit code 2 triggers shell cd |
+| Source setup scripts | Stable | Exit code 3 triggers shell source |
+| List projects | Stable | Shows current project highlighted |
+| Fuzzy matching | Stable | Prefix, substring, case-insensitive |
+| Shell aliases | Stable | `adpj`, `chpj`, `lspj`, `rmpj`, `shpj`, `prpj`, `hlpj` |
+| Prompt integration | Stable | `prpj` outputs current project name |
+| Tab completion | Partial | Basic completions via `source-pjm.sh` |
+| Shell completions | Generated | `pjm1 completions <shell>` |
+| Logging | Stable | `-l` flag with env_logger |
+
+### Known Issues
+
+1. **Serde dependency outdated**: Run `cargo update -p serde_derive` to fix warnings
+2. **Debug flag unimplemented**: `-d` flag calls `unimplemented!()`
+3. **Stale current_project**: Manual `cd` doesn't update tracking
+4. **Limited path expansion**: Only `~` is expanded, not `$VAR` or other shell features
+
+---
+
+## Purpose and Goals
+
+### Original Purpose
+Enable developers to quickly switch between projects without remembering or typing full paths.
+
+### Evolved Goals
+
+1. **Human Usability**: Remain simple and fast for daily developer use
+2. **AI Agent Support**: Provide machine-readable output and context for AI coding agents
+3. **Environment Management**: Configure project-specific environments, paths, and restrictions
+4. **Sandboxing**: Integrate with tools like `nono` (anti-sudo), `uv venv`, and containers
+5. **Discoverability**: Help users (human and AI) understand available projects and their contexts
+
+---
+
+## Current Usage
+
+### Basic Workflow
+
+```bash
+# Setup (one time)
+source /path/to/source-pjm.sh
+
+# Add a project
+adpj myproject -f ~/code/myproject
+
+# Switch to project (cd happens automatically)
+chpj myproject
+
+# List all projects
+lspj
+
+# Show current project
+shpj
+
+# Add to prompt
+export PS1='[$(prpj)] \w $ '
+```
+
+### File-Based Projects (Environment Setup)
+
+```bash
+# Create a setup script
+cat > ~/envs/webapp-env.sh << 'EOF'
+#!/bin/bash
+cd ~/code/webapp
+source .venv/bin/activate
+export DATABASE_URL="postgres://localhost/webapp_dev"
+export NODE_ENV=development
+EOF
+
+# Register it
+adpj webapp -f ~/envs/webapp-env.sh
+
+# Switch (sources the script)
+chpj webapp
+```
+
+---
+
+## Limitations
+
+### For Humans
+
+| Limitation | Impact | Difficulty to Fix |
+|------------|--------|-------------------|
+| No tab completion for nicknames | Must remember exact names | Easy |
+| No project groups/tags | Hard to organize many projects | Medium |
+| No backup/restore | Config loss on machine change | Easy |
+| No import from other tools | Manual migration required | Medium |
+| No project templates | Repetitive setup for similar projects | Medium |
+
+### For AI Agents
+
+| Limitation | Impact | Difficulty to Fix |
+|------------|--------|-------------------|
+| No machine-readable output | Must parse human output | Easy |
+| No project metadata | AI lacks context about projects | Medium |
+| No environment restrictions | Can't limit AI access | Hard |
+| No sandbox integration | No safe execution environment | Hard |
+| No semantic help | Error messages not AI-optimized | Medium |
+
+---
+
+## Improvement Areas
+
+### 1. Installation
+
+#### Current Process (Manual)
+```bash
+cargo build --release
+mkdir -p ~/.local/bin
+cp target/release/pjm1 ~/.local/bin/
+echo 'source /path/to/source-pjm.sh' >> ~/.zshrc
+```
+
+#### Proposed Improvements
+
+**A. Install Script**
+```bash
+# One-line install
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjm1/master/install.sh | bash
+```
+
+The install script would:
+1. Detect OS and architecture
+2. Download or build the binary
+3. Install to `~/.local/bin/` or `/usr/local/bin/`
+4. Download and install `source-pjm.sh`
+5. Detect shell (bash/zsh/fish) and add to appropriate rc file
+6. Generate and install shell completions
+7. Run `pjm1 --help` to verify
+
+**B. Homebrew Formula**
+```bash
+brew tap wrightmikea/pjm1
+brew install pjm1
+```
+
+**C. Cargo Install**
+```bash
+cargo install pjm1
+# + manual shell setup, or:
+pjm1 setup --shell  # New command to configure shell
+```
+
+**D. Nix Flake**
+```nix
+{
+  inputs.pjm1.url = "github:wrightmikea/pjm1";
+  # ...
+}
+```
+
+**E. Self-Setup Command**
+```bash
+# New command to handle shell integration
+pjm1 setup --shell zsh    # Adds to ~/.zshrc
+pjm1 setup --completions  # Installs shell completions
+pjm1 setup --all          # Full setup
+```
+
+---
+
+### 2. Human Usability
+
+#### A. Interactive Mode
+
+```bash
+# Add project interactively
+$ adpj
+Project nickname: mywebapp
+Path [~/]: ~/code/mywebapp
+Description (optional): Main web application
+Tags (comma-separated): web, python, work
+Added project 'mywebapp' -> ~/code/mywebapp
+
+# Switch interactively with fuzzy finder (requires fzf)
+$ chpj
+> web
+  mywebapp     ~/code/mywebapp     [web, python, work]
+  webapi       ~/code/webapi       [web, rust, work]
+
+# Or integrate with fzf directly
+chpj $(lspj --names-only | fzf)
+```
+
+#### B. Rich Output
+
+```bash
+$ lspj --detailed
+┌────────────┬─────────────────────────┬──────────────────┬───────────┐
+│ Project    │ Path                    │ Tags             │ Last Used │
+├────────────┼─────────────────────────┼──────────────────┼───────────┤
+│ ▶ pjm1     │ ~/github/wrightmikea/pjm1 │ rust, cli, tools │ 2 min ago │
+│   webapp   │ ~/code/webapp           │ web, python      │ 1 day ago │
+│   dotfiles │ ~/dotfiles              │ config           │ 3 days ago│
+└────────────┴─────────────────────────┴──────────────────┴───────────┘
+```
+
+#### C. Recently Used Ordering
+
+```bash
+# Switch to most recently used project
+chpj -       # Like `cd -`
+chpj --last  # Same as above
+
+# List by recency
+lspj --recent
+```
+
+#### D. Project Notes
+
+```bash
+# Add notes to a project
+pjm1 note mywebapp "Deploy branch is production"
+pjm1 note mywebapp "Run migrations before testing"
+
+# Show notes when switching
+$ chpj mywebapp
+📁 Switching to mywebapp
+📝 Notes:
+   - Deploy branch is production
+   - Run migrations before testing
+```
+
+---
+
+### 3. AI Agent Usability
+
+This is a critical improvement area. AI coding agents need:
+
+1. **Machine-readable output** for parsing
+2. **Rich context** about projects
+3. **Clear error messages** with suggested fixes
+4. **Discovery mechanisms** to understand the project landscape
+
+#### A. JSON Output Mode
+
+```bash
+# Machine-readable output for all commands
+$ pjm1 --json list
+{
+  "projects": [
+    {
+      "name": "pjm1",
+      "path": "/Users/mike/github/wrightmikea/pjm1",
+      "type": "directory",
+      "is_current": true,
+      "tags": ["rust", "cli"],
+      "description": "Project manager CLI",
+      "last_used": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "current_project": "pjm1",
+  "total": 5
+}
+
+$ pjm1 --json show
+{
+  "name": "pjm1",
+  "path": "/Users/mike/github/wrightmikea/pjm1",
+  "type": "directory",
+  "is_current": true
+}
+
+# Errors also in JSON
+$ pjm1 --json change nonexistent
+{
+  "error": "project_not_found",
+  "message": "No project found matching 'nonexistent'",
+  "suggestions": ["project1", "project2"],
+  "hint": "Use 'pjm1 list' to see all projects"
+}
+```
+
+#### B. AI-Friendly Help
+
+```bash
+$ pjm1 help --ai
+# PJM1 CLI - AI Agent Reference
+
+## Purpose
+Manage and switch between development projects via nicknames.
+
+## Commands (with expected outputs)
+
+### List projects
+Command: pjm1 list
+Output format: One project per line, current project marked with ">"
+Example:
+  > project1  ~/path/to/project1
+    project2  ~/path/to/project2
+
+### Switch to project
+Command: pjm1 change <name>
+Exit codes:
+  - 2: Success, output is directory path (shell will cd)
+  - 3: Success, output is file path (shell will source)
+  - 4: Error, output is error message
+
+### Add project
+Command: pjm1 add -p <name> -f <path>
+Requirements:
+  - Path must exist
+  - Name must be unique
+
+## Error Handling
+All errors include:
+  - Error code for programmatic handling
+  - Human-readable message
+  - Suggested fix when applicable
+
+## Exit Codes
+0: Success (informational output)
+2: Success (trigger cd)
+3: Success (trigger source)
+4: Error
+```
+
+#### C. Project Metadata for AI Context
+
+```toml
+# ~/.pjm/config.toml (extended format)
+version = "pjm1-0.2.0"
+current_project = "pjm1"
+
+[[project]]
+name = "pjm1"
+[project.action]
+file_or_dir = "~/github/wrightmikea/pjm1"
+[project.metadata]
+description = "Project manager CLI in Rust"
+language = "rust"
+build_command = "cargo build"
+test_command = "cargo test"
+lint_command = "cargo clippy"
+tags = ["cli", "rust", "productivity"]
+readme = "README.md"
+# AI-specific context
+ai_context = """
+This is a Rust CLI application using clap for argument parsing.
+Shell integration is critical - test with source-pjm.sh.
+All public items require doc comments (deny(missing_docs)).
+"""
+```
+
+#### D. Context Command for AI Agents
+
+```bash
+# Output project context in a format suitable for AI system prompts
+$ pjm1 context pjm1
+Project: pjm1
+Path: /Users/mike/github/wrightmikea/pjm1
+Type: Rust CLI application
+
+Build: cargo build
+Test: cargo test
+Lint: cargo clippy --all-targets --all-features
+
+Key Files:
+- README.md: Project documentation
+- CLAUDE.md: AI assistant instructions
+- src/main.rs: Entry point
+- Cargo.toml: Dependencies and configuration
+
+Notes:
+- All warnings treated as errors
+- All public items need doc comments
+- Shell integration via exit codes
+
+# Or in a format directly usable as context
+$ pjm1 context pjm1 --for-agent
+# Outputs content suitable for inclusion in AI agent context
+```
+
+#### E. Semantic Error Messages
+
+Current:
+```
+Error: Project with name 'web' not found
+```
+
+Improved:
+```
+Error: No project found matching 'web'
+
+Did you mean one of these?
+  webapp     ~/code/webapp
+  webapi     ~/code/webapi
+
+Tip: Use 'pjm1 list' to see all projects, or 'pjm1 list --filter web' to search.
+```
+
+For AI (with `--json`):
+```json
+{
+  "error": {
+    "code": "PROJECT_NOT_FOUND",
+    "message": "No project found matching 'web'",
+    "input": "web",
+    "similar_projects": ["webapp", "webapi"],
+    "commands_to_try": [
+      "pjm1 list",
+      "pjm1 list --filter web",
+      "pjm1 add -p web -f <path>"
+    ]
+  }
+}
+```
+
+---
+
+### 4. Shell Autocompletion
+
+#### Current State
+
+Tab completion exists via `source-pjm.sh`:
+```bash
+_pjm_projects() {
+    local projects
+    projects=$(lspj 2>/dev/null | awk '{print $1}' | tr -d '>')
+    COMPREPLY=($(compgen -W "$projects" -- "${COMP_WORDS[COMP_CWORD]}"))
+}
+complete -F _pjm_projects chpj rmpj shpj
+```
+
+#### Proposed Improvements
+
+**A. Fast Native Completions**
+
+```bash
+# Generate optimized completions
+$ pjm1 completions bash --with-projects > ~/.local/share/bash-completion/completions/pjm1
+
+# The completion script calls pjm1 directly for dynamic project list
+_pjm1_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local cmd="${COMP_WORDS[1]}"
+
+    case "$cmd" in
+        change|remove|show|context)
+            # Get project names directly from pjm1 (fast, cached)
+            COMPREPLY=($(pjm1 complete projects "$cur" 2>/dev/null))
+            ;;
+        *)
+            COMPREPLY=($(pjm1 complete commands "$cur" 2>/dev/null))
+            ;;
+    esac
+}
+```
+
+**B. Completion Subcommand**
+
+```bash
+# Fast, purpose-built completion helper
+$ pjm1 complete projects web
+webapp
+webapi
+webserver
+
+$ pjm1 complete commands ch
+change
+
+$ pjm1 complete tags ru
+rust
+ruby
+```
+
+**C. Rich Zsh Completions**
+
+```zsh
+# Show descriptions with completions
+$ chpj <TAB>
+webapp    -- Main web application (Python, Django)
+webapi    -- REST API service (Rust)
+pjm1      -- This project (Rust CLI)
+```
+
+**D. Fish Completions**
+
+```fish
+# fish-specific completions with descriptions
+complete -c pjm1 -n "__fish_use_subcommand" -a change -d "Switch to a project"
+complete -c pjm1 -n "__fish_seen_subcommand_from change" -a "(pjm1 complete projects)"
+```
+
+---
+
+### 5. Project-Specific Environments
+
+This enables PJM1 to manage complete development environments, not just directories.
+
+#### A. Environment Files
+
+```bash
+# Define environment in project config
+[[project]]
+name = "webapp"
+[project.action]
+file_or_dir = "~/code/webapp"
+[project.environment]
+# Variables to set when switching to this project
+vars = { NODE_ENV = "development", DATABASE_URL = "postgres://localhost/webapp" }
+# Path modifications
+path_prepend = ["./node_modules/.bin", "./.venv/bin"]
+path_remove = []  # Patterns to remove from PATH
+# Source these files
+source_files = [".envrc", ".env.local"]
+# Run these commands on entry
+on_enter = ["nvm use", "source .venv/bin/activate"]
+# Run on exit (when switching away)
+on_exit = ["deactivate"]
+```
+
+#### B. Virtual Environment Integration
+
+```bash
+# Python with uv
+$ pjm1 add webapp -f ~/code/webapp --venv uv
+# Creates/activates venv automatically on chpj
+
+# Node with nvm
+$ pjm1 add frontend -f ~/code/frontend --node 18
+# Runs 'nvm use 18' on entry
+
+# Multiple runtimes
+$ pjm1 add fullstack -f ~/code/fullstack --venv uv --node 20 --ruby 3.2
+```
+
+#### C. Direnv Integration
+
+```bash
+# If .envrc exists in project, automatically integrate
+$ chpj webapp
+direnv: loading ~/code/webapp/.envrc
+direnv: export +DATABASE_URL +NODE_ENV
+📁 Switched to webapp
+```
+
+---
+
+### 6. AI Agent Sandboxing
+
+This is an advanced feature to provide secure, isolated environments for AI coding agents.
+
+#### A. Restricted PATH for AI Agents
+
+```toml
+[[project]]
+name = "ai-sandbox"
+[project.ai_agent]
+enabled = true
+# Only these commands available to AI
+allowed_commands = [
+    "cargo", "rustc", "rustfmt",
+    "git", "gh",
+    "cat", "ls", "find", "grep",
+    "pjm1"
+]
+# Or exclude dangerous commands
+blocked_commands = [
+    "rm", "sudo", "curl", "wget",
+    "ssh", "scp", "rsync"
+]
+# Custom PATH with only safe binaries
+restricted_path = "~/.pjm/sandboxed-bins"
+```
+
+```bash
+# Generate restricted PATH environment
+$ pjm1 sandbox-setup ai-sandbox
+Creating sandboxed environment for 'ai-sandbox'...
+Symlinking allowed commands to ~/.pjm/sandboxed-bins/
+  ✓ cargo -> /Users/mike/.cargo/bin/cargo
+  ✓ git -> /usr/bin/git
+  ...
+Created ~/.pjm/envs/ai-sandbox.sh
+
+# When AI agent activates project
+$ chpj ai-sandbox --agent
+🔒 AI Agent mode: restricted PATH active
+Allowed: cargo, git, ls, find, grep, pjm1
+Blocked: rm, sudo, curl, wget, ssh
+```
+
+#### B. Nono (Anti-Sudo) Integration
+
+[Nono](https://github.com/example/nono) is a tool that intercepts and blocks sudo/privileged commands.
+
+```toml
+[[project]]
+name = "untrusted-code"
+[project.sandbox]
+use_nono = true  # Intercept sudo attempts
+nono_mode = "deny"  # deny, log, or prompt
+```
+
+```bash
+$ chpj untrusted-code --agent
+🔒 Nono active: sudo commands will be blocked
+```
+
+#### C. Container Integration
+
+```toml
+[[project]]
+name = "isolated-dev"
+[project.container]
+type = "docker"  # or "podman", "lxc", "lima"
+image = "rust:1.75-slim"
+mounts = [
+    { host = "~/code/myproject", container = "/workspace", mode = "rw" },
+    { host = "~/.cargo", container = "/root/.cargo", mode = "ro" }
+]
+ports = ["3000:3000", "5432:5432"]
+# Enter container on project switch
+enter_on_switch = true
+```
+
+```bash
+$ chpj isolated-dev
+🐳 Starting container for isolated-dev...
+Container running: rust:1.75-slim
+Mounted: ~/code/myproject -> /workspace
+root@container:/workspace#
+```
+
+#### D. VM Integration (Advanced)
+
+```toml
+[[project]]
+name = "secure-audit"
+[project.vm]
+type = "lima"  # or "orbstack", "multipass"
+template = "ubuntu-22.04"
+cpus = 2
+memory = "4GiB"
+```
+
+#### E. Agent Context Injection
+
+```toml
+[[project]]
+name = "webapp"
+[project.ai_agent]
+# Context automatically provided to AI agents
+system_prompt = """
+This is a Python Django web application.
+- Always run tests with: python manage.py test
+- Format code with: black .
+- The database is PostgreSQL
+- Never modify migration files directly
+"""
+# Files the agent should read first
+context_files = ["README.md", "CONTRIBUTING.md", ".claude/context.md"]
+# Files/patterns the agent should NOT modify
+protected_files = ["*.lock", "migrations/*", ".env"]
+```
+
+---
+
+### 7. Project Grouping
+
+Organize projects logically for easier management.
+
+#### A. Tags
+
+```bash
+# Add tags when creating
+$ adpj myproject -f ~/code/myproject --tags work,python,web
+
+# Add tags to existing project
+$ pjm1 tag myproject add frontend
+
+# List by tag
+$ lspj --tag work
+  webapp     ~/code/webapp           [work, python]
+  api        ~/code/api              [work, rust]
+
+$ lspj --tags python,web
+  webapp     ~/code/webapp           [work, python, web]
+```
+
+#### B. Groups (GitHub Organization Style)
+
+```bash
+# Create a group
+$ pjm1 group create work "Work projects"
+$ pjm1 group create personal "Personal projects"
+$ pjm1 group create oss "Open source contributions"
+
+# Add projects to groups
+$ pjm1 group add work webapp api admin-panel
+$ pjm1 group add oss pjm1 rtt1
+
+# List by group
+$ lspj --group work
+[work]
+  webapp     ~/code/work/webapp
+  api        ~/code/work/api
+
+$ lspj --group oss
+[oss]
+  pjm1       ~/github/wrightmikea/pjm1
+  rtt1       ~/github/wrightmikea/rtt1
+
+# Switch to a random project in group (for variety)
+$ chpj --random --group oss
+```
+
+#### C. Auto-Grouping
+
+```bash
+# Auto-detect groups from path patterns
+$ pjm1 auto-group
+Detected groups:
+  github/wrightmikea (3 projects)
+  github/work-org (5 projects)
+  code/personal (2 projects)
+
+Apply these groups? [Y/n]
+```
+
+#### D. Group-Level Settings
+
+```toml
+[groups.work]
+description = "Work projects"
+# Default environment for all projects in this group
+default_env = { JIRA_URL = "https://work.atlassian.net" }
+# Shared pre/post commands
+on_enter = ["echo 'Work mode: remember to log time!'"]
+```
+
+---
+
+### 8. Configuration Management
+
+#### A. Export/Import
+
+```bash
+# Export full configuration
+$ pjm1 config export > pjm-backup.toml
+$ pjm1 config export --format json > pjm-backup.json
+
+# Import configuration
+$ pjm1 config import pjm-backup.toml
+Importing 15 projects...
+  ✓ 12 new projects added
+  ⚠ 3 projects already exist (skipped)
+
+# Merge configurations
+$ pjm1 config import colleague-config.toml --merge
+```
+
+#### B. Sync Across Machines
+
+```bash
+# Store config in dotfiles repo
+$ pjm1 config link ~/dotfiles/pjm/config.toml
+Configuration linked to ~/dotfiles/pjm/config.toml
+Changes will be reflected automatically.
+
+# Or use Git directly
+$ cd ~/.pjm && git init
+$ git remote add origin git@github.com:user/pjm-config.git
+$ pjm1 config sync  # git pull && git add . && git commit && git push
+```
+
+#### C. Templates
+
+```bash
+# Create project from template
+$ pjm1 template create rust-cli
+Template 'rust-cli' created with settings:
+  - Tags: rust, cli
+  - Build: cargo build
+  - Test: cargo test
+  - Environment: RUST_BACKTRACE=1
+
+# Use template
+$ pjm1 add newcli -f ~/code/newcli --template rust-cli
+```
+
+#### D. Machine-Specific Overrides
+
+```toml
+# ~/.pjm/config.toml
+[[project]]
+name = "webapp"
+[project.action]
+file_or_dir = "~/code/webapp"
+
+# ~/.pjm/config.local.toml (not synced, machine-specific)
+[[project.override]]
+name = "webapp"
+[project.environment]
+# Different database on this machine
+vars = { DATABASE_URL = "postgres://localhost:5433/webapp_dev" }
+```
+
+---
+
+### 9. AI-Assisted Configuration
+
+Use AI to help configure and manage projects.
+
+#### A. Smart Project Discovery
+
+```bash
+$ pjm1 discover
+Scanning for projects...
+Found 12 potential projects:
+
+  ~/code/webapp           (Python, Django, has .env)
+  ~/code/api              (Rust, Cargo.toml found)
+  ~/code/frontend         (Node, package.json found)
+  ~/github/wrightmikea/*  (4 Rust projects)
+
+Add all discovered projects? [Y/n/select]
+```
+
+#### B. AI-Assisted Setup
+
+```bash
+$ pjm1 setup-with-ai webapp
+🤖 Analyzing ~/code/webapp...
+
+Detected:
+  - Python 3.11 project (pyproject.toml)
+  - Django web framework
+  - PostgreSQL database (from settings.py)
+  - Docker Compose available
+
+Suggested configuration:
+  Name: webapp
+  Tags: python, django, web, work
+  Build: pip install -e .
+  Test: pytest
+  Environment:
+    DJANGO_SETTINGS_MODULE=webapp.settings
+    DATABASE_URL=postgres://localhost/webapp
+  On Enter:
+    source .venv/bin/activate
+
+Accept this configuration? [Y/n/edit]
+```
+
+#### C. Integration with Local AI (Ollama)
+
+```bash
+# Configure local AI for privacy
+$ pjm1 config set ai.provider ollama
+$ pjm1 config set ai.model codellama
+
+# Use AI for project analysis
+$ pjm1 analyze webapp
+🤖 Analyzing webapp with Ollama (codellama)...
+
+Project Summary:
+  A Django web application for managing customer orders.
+  Main entry point: manage.py
+  Key dependencies: Django 4.2, psycopg2, celery
+
+Suggested improvements:
+  1. Add .pjmrc for environment setup
+  2. Create docker-compose for local development
+  3. Add pre-commit hooks for code quality
+```
+
+#### D. Natural Language Commands
+
+```bash
+$ pjm1 ask "which project uses Django?"
+Projects using Django:
+  - webapp (~/code/webapp)
+  - admin-panel (~/code/admin)
+
+$ pjm1 ask "switch to my rust CLI project"
+Found: pjm1 (~/github/wrightmikea/pjm1)
+Switch to pjm1? [Y/n]
+```
+
+---
+
+## Implementation Priority
+
+### Phase 1: Foundation (v0.2.0)
+*Focus: Core improvements for immediate usability*
+
+1. **JSON output mode** (`--json` flag)
+2. **Improved error messages** with suggestions
+3. **Install script** (`install.sh`)
+4. **`pjm1 setup` command** for shell integration
+5. **Enhanced tab completion** (dynamic project names)
+6. **Implement debug flag**
+
+### Phase 2: Metadata (v0.3.0)
+*Focus: Richer project information*
+
+1. **Project metadata** (description, tags, language)
+2. **Project groups**
+3. **`pjm1 context` command** for AI agents
+4. **Recently-used tracking**
+5. **Configuration export/import**
+6. **Project notes**
+
+### Phase 3: Environments (v0.4.0)
+*Focus: Environment management*
+
+1. **Environment variables per project**
+2. **on_enter/on_exit hooks**
+3. **uv/venv integration**
+4. **nvm integration**
+5. **Direnv compatibility**
+6. **Templates**
+
+### Phase 4: AI & Sandboxing (v0.5.0)
+*Focus: AI agent support and security*
+
+1. **AI context injection**
+2. **Restricted PATH mode**
+3. **Nono integration**
+4. **Protected files**
+5. **`--agent` mode flag**
+6. **AI-assisted discovery**
+
+### Phase 5: Containers (v0.6.0)
+*Focus: Advanced isolation*
+
+1. **Docker integration**
+2. **LXC/Lima support**
+3. **Per-project containers**
+4. **Development environments as code**
+
+---
+
+## Technical Architecture Changes
+
+### Config File Evolution
+
+```toml
+# Version 1 (current)
+version = "pjm1-0.1.0"
+current_project = "pjm1"
+
+[[project]]
+name = "pjm1"
+[project.action]
+file_or_dir = "~/github/wrightmikea/pjm1"
+
+# Version 2 (proposed)
+version = "pjm1-0.2.0"
+current_project = "pjm1"
+
+[settings]
+json_output = false
+ai_provider = "ollama"
+ai_model = "codellama"
+
+[[groups]]
+name = "work"
+description = "Work projects"
+
+[[project]]
+name = "pjm1"
+group = "oss"
+tags = ["rust", "cli"]
+description = "Project manager CLI"
+last_used = "2024-01-15T10:30:00Z"
+
+[project.action]
+file_or_dir = "~/github/wrightmikea/pjm1"
+
+[project.metadata]
+language = "rust"
+build = "cargo build"
+test = "cargo test"
+readme = "README.md"
+
+[project.environment]
+vars = { RUST_BACKTRACE = "1" }
+path_prepend = ["./target/debug"]
+
+[project.ai_agent]
+context_files = ["CLAUDE.md", "README.md"]
+protected_files = ["Cargo.lock"]
+```
+
+### New Module Structure
+
+```
+src/
+├── main.rs
+├── lib.rs
+├── args.rs          # CLI parsing
+├── command/         # Command implementations
+│   ├── mod.rs
+│   ├── add.rs
+│   ├── change.rs
+│   ├── list.rs
+│   ├── remove.rs
+│   ├── show.rs
+│   ├── context.rs   # NEW: AI context
+│   ├── group.rs     # NEW: Group management
+│   ├── config.rs    # NEW: Config management
+│   └── setup.rs     # NEW: Shell setup
+├── config/          # Configuration
+│   ├── mod.rs
+│   ├── types.rs
+│   ├── migration.rs # Config version migration
+│   └── local.rs     # Machine-specific overrides
+├── environment/     # NEW: Environment management
+│   ├── mod.rs
+│   ├── vars.rs
+│   ├── path.rs
+│   └── hooks.rs
+├── sandbox/         # NEW: Sandboxing
+│   ├── mod.rs
+│   ├── path.rs
+│   ├── nono.rs
+│   └── container.rs
+├── ai/              # NEW: AI features
+│   ├── mod.rs
+│   ├── context.rs
+│   ├── discover.rs
+│   └── ollama.rs
+├── output/          # NEW: Output formatting
+│   ├── mod.rs
+│   ├── human.rs
+│   ├── json.rs
+│   └── table.rs
+├── projects.rs
+├── io.rs
+├── util.rs
+└── error.rs
+```
+
+### Exit Code Expansion
+
+```rust
+pub enum ExitAction {
+    Print = 0,           // Print output to console
+    ChangeDirectory = 2, // Shell should cd
+    SourceFile = 3,      // Shell should source
+    Error = 4,           // Error occurred
+    // New exit codes
+    ExecCommand = 5,     // Shell should execute output as command
+    SetEnv = 6,          // Shell should eval output as env setup
+}
+```
+
+### Shell Integration Enhancement
+
+```bash
+# Enhanced source-pjm.sh
+pjm_fn() {
+    local PJM_OUT PJM_EXIT
+    PJM_OUT=$(pjm1 "$@")
+    PJM_EXIT=$?
+
+    case "$PJM_EXIT" in
+        0) echo "$PJM_OUT";;
+        2) cd "$PJM_OUT";;
+        3) source "$PJM_OUT";;
+        4) echo "Error: $PJM_OUT" >&2; return 1;;
+        5) eval "$PJM_OUT";;           # Execute command
+        6) eval "$PJM_OUT";;           # Set environment
+        *) echo "$PJM_OUT";;
+    esac
+}
+
+# Enhanced completions
+_pjm_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local cmd="${COMP_WORDS[1]}"
+
+    case "$cmd" in
+        change|remove|show|context)
+            COMPREPLY=($(pjm1 complete projects "$cur" 2>/dev/null))
+            ;;
+        group)
+            COMPREPLY=($(pjm1 complete groups "$cur" 2>/dev/null))
+            ;;
+        tag)
+            COMPREPLY=($(pjm1 complete tags "$cur" 2>/dev/null))
+            ;;
+        *)
+            COMPREPLY=($(pjm1 complete commands "$cur" 2>/dev/null))
+            ;;
+    esac
+}
+
+complete -F _pjm_complete pjm1 pjm_fn
+complete -F _pjm_complete chpj rmpj shpj
+```
+
+---
+
+## Conclusion
+
+PJM1 has a solid foundation. The proposed improvements transform it from a simple project switcher into a comprehensive development environment manager that serves both human developers and AI coding agents.
+
+Key themes:
+1. **Machine-readable output** enables AI agent integration
+2. **Environment management** reduces project setup friction
+3. **Sandboxing** provides security for AI-generated code execution
+4. **Grouping and metadata** scale to many projects
+5. **Easy installation** lowers adoption barriers
+
+The phased implementation approach allows incremental value delivery while building toward the complete vision.
