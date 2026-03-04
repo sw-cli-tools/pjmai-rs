@@ -50,6 +50,15 @@ fn run() -> Result<()> {
                 dry_run,
             } => command::config_import(file, *merge, *dry_run, json)?,
         },
+        args::Subcommands::Env { project, action } => match action {
+            args::EnvAction::Set { key, value } => command::env_set(project, key, value, json)?,
+            args::EnvAction::Unset { key } => command::env_unset(project, key, json)?,
+            args::EnvAction::OnEnter { command: cmd } => {
+                command::env_on_enter(project, cmd, json)?
+            }
+            args::EnvAction::Show {} => command::env_show(project, json)?,
+            args::EnvAction::Clear {} => command::env_clear(project, json)?,
+        },
         args::Subcommands::Context { project, for_agent } => {
             command::context(project.clone(), *for_agent, json)?
         }

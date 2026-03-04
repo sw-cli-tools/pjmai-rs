@@ -3,6 +3,7 @@ use crate::{ProjectName, ProjectPath, SerializedRegistry};
 use chrono;
 use log::info;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
@@ -53,6 +54,20 @@ pub struct ProjectMetadata {
     /// Free-form notes about the project
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<String>,
+    /// Environment configuration for project entry
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<EnvironmentConfig>,
+}
+
+/// Environment configuration for a project
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct EnvironmentConfig {
+    /// Environment variables to set
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vars: Option<HashMap<String, String>>,
+    /// Commands to run on project entry
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_enter: Option<Vec<String>>,
 }
 
 /// An action associated with a project

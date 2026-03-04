@@ -2,6 +2,7 @@
 
 use crate::util;
 use serde::Serialize;
+use std::collections::HashMap;
 
 /// A project in JSON output format
 #[derive(Debug, Serialize)]
@@ -278,6 +279,28 @@ pub struct ConfigImportOutput {
     /// Names of updated projects
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub updated_projects: Vec<String>,
+}
+
+/// JSON output for env show command
+#[derive(Debug, Serialize)]
+pub struct EnvShowOutput {
+    /// Project name
+    pub project: String,
+    /// Environment variables
+    pub vars: HashMap<String, String>,
+    /// Commands to run on project entry
+    pub on_enter: Vec<String>,
+}
+
+/// JSON output for env modification commands
+#[derive(Debug, Serialize)]
+pub struct EnvModifyOutput {
+    /// Success indicator
+    pub success: bool,
+    /// Operation performed
+    pub operation: String,
+    /// Project name affected
+    pub project: String,
 }
 
 /// Determine if a path points to a directory or file

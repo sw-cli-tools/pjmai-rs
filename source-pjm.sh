@@ -47,6 +47,18 @@ pjm_fn() {
         3)
             source "$PJM_OUT"
             ;;
+        5)
+            # Execute environment setup script (cd + exports + on_enter)
+            eval "$PJM_OUT"
+            # Check for .pjmai.sh after environment setup
+            if [[ -f .pjmai.sh ]]; then
+                if _pjm_is_approved .pjmai.sh; then
+                    source .pjmai.sh
+                else
+                    echo "\033[0;33mFound .pjmai.sh\033[0m - inspect: 'cat .pjmai.sh', approve: 'srcpj'"
+                fi
+            fi
+            ;;
         *)
             echo "$PJM_OUT"
             ;;

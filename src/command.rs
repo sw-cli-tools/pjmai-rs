@@ -1,8 +1,8 @@
 use crate::error::{PjmError, Result};
 use crate::output::{
-    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, ErrorOutput, KeyFile, ListOutput,
-    MetaOutput, NoteEntry, NotesOutput, ProjectOutput, PromptOutput, PushPopOutput, SetupAction,
-    SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
+    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, EnvModifyOutput, EnvShowOutput,
+    ErrorOutput, KeyFile, ListOutput, MetaOutput, NoteEntry, NotesOutput, ProjectOutput,
+    PromptOutput, PushPopOutput, SetupAction, SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
 };
 use crate::projects;
 use crate::util;
@@ -49,6 +49,7 @@ pub fn add(
             group,
             last_used: None,
             notes: Vec::new(),
+            environment: None,
         })
     } else {
         None
@@ -185,6 +186,8 @@ pub fn change(project_name: &str, json: bool) -> Result<()> {
             // Clone needed values before modifying registry
             let proj_name = project.name.clone();
             let file_path = util::expand_file_path(&project.action.file_or_dir);
+            // Clone project for env setup check (before registry modification)
+            let project_clone = project.clone();
 
             if util::is_file_found(&file_path) {
                 registry.current_project = proj_name.clone();
@@ -201,14 +204,26 @@ pub fn change(project_name: &str, json: bool) -> Result<()> {
                         path_type: path_type.to_string(),
                         action: action.to_string(),
                     });
-                } else {
-                    print!("{}", &file_path); // path parameter for bash cd or source command
                 }
 
                 if is_dir {
+                    // Check for environment setup
+                    if let Some(setup_script) = generate_env_setup(&project_clone, &file_path) {
+                        if !json {
+                            print!("{}", setup_script);
+                        }
+                        info!("change done 5");
+                        std::process::exit(5); // bash wrapper will eval the setup script
+                    }
+                    if !json {
+                        print!("{}", &file_path); // path parameter for bash cd command
+                    }
                     info!("change done 2");
                     std::process::exit(2); // bash wrapper will cd to the above printed path
                 } else {
+                    if !json {
+                        print!("{}", &file_path); // path parameter for bash source command
+                    }
                     info!("change done 3");
                     std::process::exit(3); // bash wrapper will source the above printed path
                 }
@@ -2552,4 +2567,240 @@ pub fn config_import(file: &str, merge: bool, dry_run: bool, json: bool) -> Resu
     }
 
     Ok(())
+}
+
+/// Set an environment variable for a project
+pub fn env_set(project_name: &str, key: &str, value: &str, json: bool) -> Result<()> {
+    info!("env set {} for {}", key, project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    // Ensure metadata exists
+    if project.metadata.is_none() {
+        project.metadata = Some(projects::ProjectMetadata::default());
+    }
+
+    let metadata = project.metadata.as_mut().unwrap();
+
+    // Ensure environment exists
+    if metadata.environment.is_none() {
+        metadata.environment = Some(projects::EnvironmentConfig::default());
+    }
+
+    let env = metadata.environment.as_mut().unwrap();
+
+    // Ensure vars exists
+    if env.vars.is_none() {
+        env.vars = Some(HashMap::new());
+    }
+
+    env.vars.as_mut().unwrap().insert(key.to_string(), value.to_string());
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "set".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Set {}={} for project {}", key, value, project_name);
+    }
+
+    Ok(())
+}
+
+/// Remove an environment variable from a project
+pub fn env_unset(project_name: &str, key: &str, json: bool) -> Result<()> {
+    info!("env unset {} for {}", key, project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    if let Some(ref mut metadata) = project.metadata
+        && let Some(ref mut env) = metadata.environment
+        && let Some(ref mut vars) = env.vars
+    {
+        vars.remove(key);
+    }
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "unset".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Unset {} for project {}", key, project_name);
+    }
+
+    Ok(())
+}
+
+/// Add an on_enter command to a project
+pub fn env_on_enter(project_name: &str, command: &str, json: bool) -> Result<()> {
+    info!("env on_enter {} for {}", command, project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    // Ensure metadata exists
+    if project.metadata.is_none() {
+        project.metadata = Some(projects::ProjectMetadata::default());
+    }
+
+    let metadata = project.metadata.as_mut().unwrap();
+
+    // Ensure environment exists
+    if metadata.environment.is_none() {
+        metadata.environment = Some(projects::EnvironmentConfig::default());
+    }
+
+    let env = metadata.environment.as_mut().unwrap();
+
+    // Ensure on_enter exists
+    if env.on_enter.is_none() {
+        env.on_enter = Some(Vec::new());
+    }
+
+    env.on_enter.as_mut().unwrap().push(command.to_string());
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "on_enter".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Added on_enter command for project {}", project_name);
+    }
+
+    Ok(())
+}
+
+/// Show environment config for a project
+pub fn env_show(project_name: &str, json: bool) -> Result<()> {
+    info!("env show for {}", project_name);
+    let registry = util::projects()?;
+
+    let project = registry
+        .find_project(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    let (vars, on_enter) = if let Some(ref metadata) = project.metadata {
+        if let Some(ref env) = metadata.environment {
+            (
+                env.vars.clone().unwrap_or_default(),
+                env.on_enter.clone().unwrap_or_default(),
+            )
+        } else {
+            (HashMap::new(), Vec::new())
+        }
+    } else {
+        (HashMap::new(), Vec::new())
+    };
+
+    if json {
+        output::print_json(&EnvShowOutput {
+            project: project_name.to_string(),
+            vars,
+            on_enter,
+        });
+    } else {
+        println!("Environment config for project {}:", project_name.cyan());
+        if vars.is_empty() && on_enter.is_empty() {
+            println!("  (no environment configuration)");
+        } else {
+            if !vars.is_empty() {
+                println!("  {}:", "Variables".green());
+                for (k, v) in &vars {
+                    println!("    {}={}", k, v);
+                }
+            }
+            if !on_enter.is_empty() {
+                println!("  {}:", "On enter".green());
+                for cmd in &on_enter {
+                    println!("    {}", cmd);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Clear all environment config for a project
+pub fn env_clear(project_name: &str, json: bool) -> Result<()> {
+    info!("env clear for {}", project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    if let Some(ref mut metadata) = project.metadata {
+        metadata.environment = None;
+    }
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "clear".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Cleared environment config for project {}", project_name);
+    }
+
+    Ok(())
+}
+
+/// Generate environment setup script for a project
+fn generate_env_setup(project: &projects::ChangeToProject, file_path: &str) -> Option<String> {
+    let env = project.metadata.as_ref()?.environment.as_ref()?;
+
+    // Check if there's anything to set up
+    let has_vars = env.vars.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    let has_on_enter = env.on_enter.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+
+    if !has_vars && !has_on_enter {
+        return None;
+    }
+
+    let mut script = String::new();
+
+    // CD to directory
+    script.push_str(&format!("cd '{}'\n", file_path));
+
+    // Environment variables
+    if let Some(vars) = &env.vars {
+        for (k, v) in vars {
+            // Escape single quotes in value
+            let escaped_v = v.replace('\'', "'\\''");
+            script.push_str(&format!("export {}='{}'\n", k, escaped_v));
+        }
+    }
+
+    // On-enter commands
+    if let Some(cmds) = &env.on_enter {
+        for cmd in cmds {
+            script.push_str(&format!("{}\n", cmd));
+        }
+    }
+
+    Some(script)
 }

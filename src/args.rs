@@ -233,6 +233,18 @@ pub enum Subcommands {
         action: ConfigAction,
     },
 
+    /// Manage project environment configuration
+    #[command(name = "env")]
+    Env {
+        /// Project name
+        #[arg(long, short)]
+        project: ProjectName,
+
+        /// Environment operation
+        #[command(subcommand)]
+        action: EnvAction,
+    },
+
     /// Scan directories for git repositories and add them as projects; alias scpj
     #[command(name = "scan")]
     Scan {
@@ -369,6 +381,41 @@ pub enum ConfigAction {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+/// Actions for the `env` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum EnvAction {
+    /// Set an environment variable
+    #[command(name = "set")]
+    Set {
+        /// Variable name
+        key: String,
+        /// Variable value
+        value: String,
+    },
+
+    /// Remove an environment variable
+    #[command(name = "unset")]
+    Unset {
+        /// Variable name
+        key: String,
+    },
+
+    /// Add an on_enter command
+    #[command(name = "on-enter")]
+    OnEnter {
+        /// Command to run when entering the project
+        command: String,
+    },
+
+    /// Show current environment config
+    #[command(name = "show")]
+    Show {},
+
+    /// Clear all environment config
+    #[command(name = "clear")]
+    Clear {},
 }
 
 /// Generate shell completions to stdout
