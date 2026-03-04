@@ -105,6 +105,34 @@ pub struct AliasesOutput {
     pub aliases: Vec<AliasOutput>,
 }
 
+/// JSON output for the setup command
+#[derive(Debug, Serialize)]
+pub struct SetupOutput {
+    /// Whether setup was successful
+    pub success: bool,
+    /// Shell that was configured
+    pub shell: String,
+    /// Actions performed
+    pub actions: Vec<SetupAction>,
+    /// Path to shell rc file modified (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rc_file: Option<String>,
+    /// Path to completions file installed (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completions_file: Option<String>,
+}
+
+/// Individual setup action
+#[derive(Debug, Serialize)]
+pub struct SetupAction {
+    /// Action name
+    pub action: String,
+    /// Whether it succeeded
+    pub success: bool,
+    /// Details or error message
+    pub message: String,
+}
+
 /// Determine if a path points to a directory or file
 pub fn path_type(path: &str) -> String {
     let expanded = util::expand_file_path(path);

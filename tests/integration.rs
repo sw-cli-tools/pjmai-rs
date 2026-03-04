@@ -705,3 +705,42 @@ project = []
         .stdout(predicate::str::contains(r#""alias": "adpj""#))
         .stdout(predicate::str::contains(r#""alias": "chpj""#));
 }
+
+// ============================================================
+// Setup command tests
+// ============================================================
+
+#[test]
+fn test_setup_completions_only() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    // Test JSON output for completions-only setup
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "setup", "--completions-only", "bash"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""success": true"#))
+        .stdout(predicate::str::contains(r#""action": "completions""#));
+}
+
+#[test]
+fn test_setup_help() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["setup", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("shell integration"))
+        .stdout(predicate::str::contains("--completions-only"));
+}

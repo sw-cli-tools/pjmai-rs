@@ -1,12 +1,17 @@
 use crate::error::{PjmError, Result};
 use crate::output::{
     self, AliasOutput, AliasesOutput, ChangeOutput, ErrorOutput, ListOutput, ProjectOutput,
-    PromptOutput, ShowOutput, SuccessOutput,
+    PromptOutput, SetupAction, SetupOutput, ShowOutput, SuccessOutput,
 };
 use crate::projects;
 use crate::util;
+use clap::CommandFactory;
+use clap_complete::Shell;
 use colored::Colorize;
 use log::info;
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
 
 /// Add a project
 pub fn add(project_name: &str, file_name: &str, json: bool) -> Result<()> {
@@ -445,4 +450,307 @@ fn is_dup(check_project_name: &str, registry: &projects::ProjectsRegistry) -> bo
         }
     }
     false
+}
+
+/// Setup shell integration
+pub fn setup(
+    shell: Option<Shell>,
+    shell_only: bool,
+    completions_only: bool,
+    json: bool,
+) -> Result<()> {
+    info!("setup");
+
+    // Detect shell if not specified
+    let detected_shell = shell.unwrap_or_else(detect_shell);
+    let shell_name = shell_to_string(detected_shell);
+
+    let mut actions: Vec<SetupAction> = Vec::new();
+    let mut rc_file_path: Option<String> = None;
+    let mut completions_file_path: Option<String> = None;
+
+    let do_shell = !completions_only;
+    let do_completions = !shell_only;
+
+    // Install shell integration
+    if do_shell {
+        match install_shell_integration(detected_shell) {
+            Ok((path, already_installed)) => {
+                rc_file_path = Some(path.clone());
+                let message = if already_installed {
+                    format!("Shell integration already present in {}", path)
+                } else {
+                    format!("Added shell integration to {}", path)
+                };
+                actions.push(SetupAction {
+                    action: "shell_integration".to_string(),
+                    success: true,
+                    message: message.clone(),
+                });
+                if !json {
+                    println!("{} {}", "✓".green(), message);
+                }
+            }
+            Err(e) => {
+                let message = format!("Failed to install shell integration: {}", e);
+                actions.push(SetupAction {
+                    action: "shell_integration".to_string(),
+                    success: false,
+                    message: message.clone(),
+                });
+                if !json {
+                    println!("{} {}", "✗".red(), message);
+                }
+            }
+        }
+    }
+
+    // Install completions
+    if do_completions {
+        match install_completions(detected_shell) {
+            Ok(path) => {
+                completions_file_path = Some(path.clone());
+                let message = format!("Installed {} completions to {}", shell_name, path);
+                actions.push(SetupAction {
+                    action: "completions".to_string(),
+                    success: true,
+                    message: message.clone(),
+                });
+                if !json {
+                    println!("{} {}", "✓".green(), message);
+                }
+            }
+            Err(e) => {
+                let message = format!("Failed to install completions: {}", e);
+                actions.push(SetupAction {
+                    action: "completions".to_string(),
+                    success: false,
+                    message: message.clone(),
+                });
+                if !json {
+                    println!("{} {}", "✗".red(), message);
+                }
+            }
+        }
+    }
+
+    let all_success = actions.iter().all(|a| a.success);
+
+    if json {
+        output::print_json(&SetupOutput {
+            success: all_success,
+            shell: shell_name.clone(),
+            actions,
+            rc_file: rc_file_path,
+            completions_file: completions_file_path,
+        });
+    } else if all_success {
+        println!();
+        println!(
+            "{}",
+            "Setup complete! Restart your shell or run:".green().bold()
+        );
+        if let Some(ref rc) = rc_file_path {
+            println!("  source {}", rc);
+        }
+    }
+
+    info!("setup done");
+    Ok(())
+}
+
+/// Detect the current shell from environment
+fn detect_shell() -> Shell {
+    if let Ok(shell_path) = std::env::var("SHELL") {
+        if shell_path.contains("zsh") {
+            return Shell::Zsh;
+        } else if shell_path.contains("fish") {
+            return Shell::Fish;
+        } else if shell_path.contains("elvish") {
+            return Shell::Elvish;
+        } else if shell_path.contains("pwsh") || shell_path.contains("powershell") {
+            return Shell::PowerShell;
+        }
+    }
+    // Default to bash
+    Shell::Bash
+}
+
+/// Convert Shell enum to string
+fn shell_to_string(shell: Shell) -> String {
+    match shell {
+        Shell::Bash => "bash".to_string(),
+        Shell::Zsh => "zsh".to_string(),
+        Shell::Fish => "fish".to_string(),
+        Shell::Elvish => "elvish".to_string(),
+        Shell::PowerShell => "powershell".to_string(),
+        _ => "unknown".to_string(),
+    }
+}
+
+/// Get the RC file path for a shell
+fn get_rc_file(shell: Shell) -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    match shell {
+        Shell::Bash => PathBuf::from(format!("{}/.bashrc", home)),
+        Shell::Zsh => PathBuf::from(format!("{}/.zshrc", home)),
+        Shell::Fish => PathBuf::from(format!("{}/.config/fish/config.fish", home)),
+        _ => PathBuf::from(format!("{}/.bashrc", home)),
+    }
+}
+
+/// Find the source-pjm.sh script
+fn find_source_script() -> Option<PathBuf> {
+    // Try relative to the current executable
+    if let Ok(exe_path) = std::env::current_exe()
+        && let Some(exe_dir) = exe_path.parent()
+    {
+        // Check in same directory as executable
+        let script = exe_dir.join("source-pjm.sh");
+        if script.exists() {
+            return Some(script);
+        }
+
+        // Check in parent directory (for development: target/debug/../source-pjm.sh)
+        if let Some(parent) = exe_dir.parent() {
+            let script = parent.join("source-pjm.sh");
+            if script.exists() {
+                return Some(script);
+            }
+            // Also check parent's parent (target/../source-pjm.sh)
+            if let Some(grandparent) = parent.parent() {
+                let script = grandparent.join("source-pjm.sh");
+                if script.exists() {
+                    return Some(script);
+                }
+            }
+        }
+    }
+
+    // Try common installation paths
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let common_paths = [
+        format!("{}/.local/share/pjmai/source-pjm.sh", home),
+        format!("{}/.pjmai/source-pjm.sh", home),
+        "/usr/local/share/pjmai/source-pjm.sh".to_string(),
+    ];
+
+    for path in &common_paths {
+        let p = PathBuf::from(path);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    None
+}
+
+/// Install shell integration to RC file
+/// Returns (rc_file_path, already_installed)
+fn install_shell_integration(shell: Shell) -> std::result::Result<(String, bool), String> {
+    let rc_file = get_rc_file(shell);
+    let rc_path_str = rc_file.to_string_lossy().to_string();
+
+    // Find the source script
+    let source_script = find_source_script().ok_or_else(|| {
+        "Could not find source-pjm.sh. Please ensure it's in the same directory as pjmai or in ~/.local/share/pjmai/".to_string()
+    })?;
+
+    let source_line = format!("source {}", source_script.to_string_lossy());
+    let marker = "# PJMAI shell integration";
+    let full_block = format!("{}\n{}\n", marker, source_line);
+
+    // Read existing rc file content
+    let existing_content = fs::read_to_string(&rc_file).unwrap_or_default();
+
+    // Check if already installed
+    if existing_content.contains(&source_line) || existing_content.contains(marker) {
+        return Ok((rc_path_str, true));
+    }
+
+    // Ensure parent directory exists (for fish config)
+    if let Some(parent) = rc_file.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    // Append to rc file
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&rc_file)
+        .map_err(|e| format!("Failed to open {}: {}", rc_path_str, e))?;
+
+    // Add a newline before if file doesn't end with one
+    let prefix = if existing_content.is_empty() || existing_content.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
+
+    writeln!(file, "{}{}", prefix, full_block)
+        .map_err(|e| format!("Failed to write to {}: {}", rc_path_str, e))?;
+
+    Ok((rc_path_str, false))
+}
+
+/// Install shell completions
+fn install_completions(shell: Shell) -> std::result::Result<String, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+
+    let (completions_dir, filename) = match shell {
+        Shell::Bash => (
+            format!("{}/.local/share/bash-completion/completions", home),
+            "pjmai".to_string(),
+        ),
+        Shell::Zsh => (format!("{}/.zsh/completions", home), "_pjmai".to_string()),
+        Shell::Fish => (
+            format!("{}/.config/fish/completions", home),
+            "pjmai.fish".to_string(),
+        ),
+        _ => {
+            return Err(format!(
+                "Completions for {:?} not supported yet",
+                shell
+            ))
+        }
+    };
+
+    // Create completions directory
+    fs::create_dir_all(&completions_dir)
+        .map_err(|e| format!("Failed to create {}: {}", completions_dir, e))?;
+
+    let completions_path = format!("{}/{}", completions_dir, filename);
+
+    // Generate completions
+    let mut cmd = crate::args::Args::command();
+    let mut buffer = Vec::new();
+    clap_complete::generate(shell, &mut cmd, "pjmai", &mut buffer);
+
+    // Write completions file
+    fs::write(&completions_path, buffer)
+        .map_err(|e| format!("Failed to write {}: {}", completions_path, e))?;
+
+    // For zsh, remind about fpath
+    if shell == Shell::Zsh {
+        // Check if .zshrc has the fpath line
+        let zshrc = format!("{}/.zshrc", home);
+        let zshrc_content = fs::read_to_string(&zshrc).unwrap_or_default();
+        let fpath_line = "fpath=(~/.zsh/completions $fpath)";
+        if !zshrc_content.contains(fpath_line) && !zshrc_content.contains(".zsh/completions") {
+            // Add fpath to .zshrc
+            let mut file = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&zshrc)
+                .map_err(|e| format!("Failed to open {}: {}", zshrc, e))?;
+            writeln!(
+                file,
+                "\n# PJMAI completions\n{}\nautoload -Uz compinit && compinit",
+                fpath_line
+            )
+            .map_err(|e| format!("Failed to write to {}: {}", zshrc, e))?;
+        }
+    }
+
+    Ok(completions_path)
 }

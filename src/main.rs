@@ -32,6 +32,11 @@ fn run() -> Result<()> {
         args::Subcommands::List {} => command::list(json)?,
         args::Subcommands::Prompt {} => command::prompt(json)?,
         args::Subcommands::Remove { project } => command::remove(project, json)?,
+        args::Subcommands::Setup {
+            shell,
+            shell_only,
+            completions_only,
+        } => command::setup(*shell, *shell_only, *completions_only, json)?,
         args::Subcommands::Show {} => command::show(json)?,
     }
     info!(target:"pjmai::main", "finished");

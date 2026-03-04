@@ -25,6 +25,28 @@ cp target/release/pjmai ~/.local/bin/
 
 ### Shell Integration (Required)
 
+**Option 1: Automatic Setup (Recommended)**
+
+Run the setup command to automatically configure your shell:
+
+```bash
+pjmai setup
+```
+
+This will:
+- Auto-detect your shell (bash, zsh, fish)
+- Add shell integration to your rc file (~/.bashrc, ~/.zshrc, etc.)
+- Install shell completions
+
+You can also specify options:
+```bash
+pjmai setup zsh              # Specify shell explicitly
+pjmai setup --shell-only     # Only add shell integration
+pjmai setup --completions-only  # Only install completions
+```
+
+**Option 2: Manual Setup**
+
 Add the following to your shell's rc file:
 
 **For Zsh (~/.zshrc) on macOS:**
@@ -78,6 +100,7 @@ prpj
 | `pjmai prompt` | `prpj` | Output current project name (for prompts) |
 | `pjmai aliases` | `hlpj` | Show all available aliases |
 | `pjmai completions <shell>` | - | Generate shell completions |
+| `pjmai setup [shell]` | - | Auto-configure shell integration |
 
 ### Global Flags
 

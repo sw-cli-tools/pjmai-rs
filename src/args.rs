@@ -88,6 +88,22 @@ pub enum Subcommands {
     /// Shows the previously changed-to project; alias shpj
     #[command(name = "show", alias = "s")]
     Show {},
+
+    /// Configure shell integration (adds to shell rc file and installs completions)
+    #[command(name = "setup")]
+    Setup {
+        /// Target shell (auto-detected if not specified)
+        #[arg(value_enum)]
+        shell: Option<Shell>,
+
+        /// Only install shell integration (source-pjm.sh)
+        #[arg(long, conflicts_with = "completions_only")]
+        shell_only: bool,
+
+        /// Only install shell completions
+        #[arg(long, conflicts_with = "shell_only")]
+        completions_only: bool,
+    },
 }
 
 /// Generate shell completions to stdout

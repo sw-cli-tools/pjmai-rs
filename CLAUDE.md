@@ -55,7 +55,7 @@ RUST_LOG=info pjmai -l list                     # Run with logging enabled
 
 ## Shell Aliases
 
-After sourcing `source-pjm.sh`:
+After sourcing `source-pjm.sh` (or running `pjmai setup`):
 - `adpj` - Add project
 - `chpj` - Change to project
 - `lspj` - List projects
@@ -63,6 +63,17 @@ After sourcing `source-pjm.sh`:
 - `shpj` - Show current project
 - `prpj` - Get project name for shell prompt
 - `hlpj` - Show all aliases
+
+## Setup Command
+
+Auto-configure shell integration:
+
+```bash
+pjmai setup              # Auto-detect shell, install everything
+pjmai setup zsh          # Specify shell explicitly
+pjmai setup --shell-only # Only shell integration (source-pjm.sh)
+pjmai setup --completions-only  # Only install completions
+```
 
 ## JSON Output Mode
 
