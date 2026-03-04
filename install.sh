@@ -7,6 +7,7 @@
 #   --no-completions  Skip shell completion installation
 #   --prefix DIR      Install to DIR instead of ~/.local/bin
 #   --scan-base DIR   Scan directory for git repositories after install
+#   --prompt          Add project indicator to shell prompt
 #   --help            Show this help message
 
 set -e
@@ -19,6 +20,7 @@ INSTALL_COMPLETIONS=true
 LOCAL_DIR=""
 TEMP_DIR=""
 SCAN_BASE=""
+INSTALL_PROMPT=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -58,6 +60,7 @@ Options:
     --prefix DIR        Install to DIR instead of ~/.local/bin
     --local DIR         Build from local directory instead of cloning from GitHub
     --scan-base DIR     Scan directory for git repositories after install
+    --prompt            Add project indicator to shell prompt
     --help              Show this help message
 
 Examples:
@@ -75,6 +78,9 @@ Examples:
 
     # Install and scan for git repositories
     ./install.sh --local . --scan-base ~/code
+
+    # Install with prompt integration
+    ./install.sh --local . --prompt
 EOF
     exit 0
 }
@@ -111,6 +117,10 @@ parse_args() {
                 fi
                 SCAN_BASE="$2"
                 shift 2
+                ;;
+            --prompt)
+                INSTALL_PROMPT=true
+                shift
                 ;;
             --help|-h)
                 show_help
@@ -416,6 +426,23 @@ verify_installation() {
     fi
 }
 
+# Install prompt integration if --prompt was specified
+install_prompt() {
+    if [[ "$INSTALL_PROMPT" != "true" ]]; then
+        return
+    fi
+
+    info "Installing prompt integration..."
+
+    export PATH="${INSTALL_PREFIX}:$PATH"
+
+    if pjmai setup --prompt 2>&1 | grep -q "✓"; then
+        success "Prompt integration installed"
+    else
+        warn "Prompt integration may have failed. Run 'pjmai setup --prompt' manually."
+    fi
+}
+
 # Scan for git repositories if --scan-base was specified
 run_scan() {
     if [[ -z "$SCAN_BASE" ]]; then
@@ -499,6 +526,7 @@ main() {
     ensure_path
     configure_shell
     install_completions
+    install_prompt
     verify_installation
     run_scan
     print_instructions
