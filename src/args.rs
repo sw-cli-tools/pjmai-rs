@@ -6,7 +6,7 @@ use std::io;
 
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
-/// Project Management Tool (first draft) - manage and switch between projects
+/// Project Management Tool (AI enhanced) - manage and switch between projects
 ///
 /// for more details:
 ///  adpj --help
@@ -37,7 +37,7 @@ pub enum Subcommands {
     #[command(name = "aliases")]
     Aliases {},
 
-    /// Adds a new project to the projects configuration (~/.pjm/config.toml); alias adpj
+    /// Adds a new project to the projects configuration (~/.pjmai/config.toml); alias adpj
     #[command(name = "add", alias = "a")]
     Add {
         /// Names the project (a short alias for the project)
@@ -89,7 +89,7 @@ pub enum Subcommands {
 /// Generate shell completions to stdout
 pub fn print_completions(shell: Shell) {
     let mut cmd = Args::command();
-    generate(shell, &mut cmd, "pjm1", &mut io::stdout());
+    generate(shell, &mut cmd, "pjmai", &mut io::stdout());
 }
 
 /// Parse supplied arguments
@@ -109,13 +109,13 @@ mod tests {
         assert_eq!(
             Args {
                 command: Subcommands::Add {
-                    project: "pjm1".to_string(),
-                    file_or_dir: "~/gh/wma/pjm1".to_string(),
+                    project: "pjmai".to_string(),
+                    file_or_dir: "~/gh/wma/pjmai".to_string(),
                 },
                 debug: false,
                 logging: false,
             },
-            Args::try_parse_from(["test", "add", "-p", "pjm1", "-f", "~/gh/wma/pjm1"]).unwrap()
+            Args::try_parse_from(["test", "add", "-p", "pjmai", "-f", "~/gh/wma/pjmai"]).unwrap()
         );
     }
 

@@ -12,8 +12,8 @@ Set Height 400
 Set Theme "Dracula"
 Set TypingSpeed 50ms
 
-Env PJM_CONFIG_DIR "/tmp/pjm1-error-demo"
-Env PATH "/Users/mike/github/wrightmikea/pjm1/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+Env PJMAI_CONFIG_DIR "/tmp/pjmai-error-demo"
+Env PATH "/Users/mike/github/wrightmikea/pjmai/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 Type "# Source shell integration"
 Enter

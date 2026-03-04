@@ -1,4 +1,4 @@
-- for all (init) check for ~/.pjm/config.toml
+- for all (init) check for ~/.pjmai/config.toml
 - if not found, offer to create or quit
 
 - if found, but empty,

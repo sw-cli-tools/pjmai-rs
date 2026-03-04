@@ -1,10 +1,10 @@
 #!/bin/sh
-# Shell integration for PJM1 - provides wrapper function and command functions
+# Shell integration for PJMAI - provides wrapper function and command functions
 # Works with both bash and zsh in interactive and non-interactive modes
 
 # Core wrapper that handles exit codes for directory changes and file sourcing
 pjm_fn() {
-    PJM_OUT=$(pjm1 "$@")
+    PJM_OUT=$(pjmai "$@")
     PJM_EXIT=$?
     case "$PJM_EXIT" in
         2)
@@ -30,7 +30,7 @@ shpj() { pjm_fn show "$@"; }
 
 # Helper to get project names for completion
 _pjm_projects() {
-    pjm1 list 2>/dev/null | sed 's/^[> ]//' | awk '{print $1}'
+    pjmai list 2>/dev/null | sed 's/^[> ]//' | awk '{print $1}'
 }
 
 # Shell-specific completion setup

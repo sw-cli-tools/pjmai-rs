@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PJM1 is a Rust CLI tool for managing and switching between projects via shell aliases. It maintains a project registry at `~/.pjm/config.toml` and integrates with bash/zsh through exit code signaling.
+PJMAI is a Rust CLI tool for managing and switching between projects via shell aliases. It maintains a project registry at `~/.pjmai/config.toml` and integrates with bash/zsh through exit code signaling.
 
 ## Build Commands
 

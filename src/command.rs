@@ -40,13 +40,13 @@ pub fn add(project_name: &str, file_name: &str) -> Result<()> {
 /// List aliases
 pub fn aliases() {
     info!("aliases");
-    println!("adpj <name> -f <dir|file> # alias for pjm1 add");
-    println!("chpj <name>               # alias for pjm1 change");
-    println!("hlpj                      # alias for pjm1 aliases");
-    println!("lspj                      # alias for pjm1 list");
-    println!("prpj                      # alias for pjm1 prompt");
-    println!("rmpj <name>               # alias for pjm1 remove");
-    println!("shpj                      # alias for pjm1 show");
+    println!("adpj <name> -f <dir|file> # alias for pjmai add");
+    println!("chpj <name>               # alias for pjmai change");
+    println!("hlpj                      # alias for pjmai aliases");
+    println!("lspj                      # alias for pjmai list");
+    println!("prpj                      # alias for pjmai prompt");
+    println!("rmpj <name>               # alias for pjmai remove");
+    println!("shpj                      # alias for pjmai show");
     info!("aliases done");
 }
 

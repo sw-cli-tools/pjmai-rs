@@ -1,4 +1,4 @@
-# PJM1 Improvements Roadmap
+# PJMAI Improvements Roadmap
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@
 
 ## Project Introduction
 
-**PJM1** (Project Manager 1) is a Rust CLI tool for managing and switching between software development projects. It maintains a registry of project "nicknames" mapped to filesystem paths, enabling rapid context switching via short shell aliases.
+**PJMAI** (Project Manager 1) is a Rust CLI tool for managing and switching between software development projects. It maintains a registry of project "nicknames" mapped to filesystem paths, enabling rapid context switching via short shell aliases.
 
 Key capabilities:
 - **Project Registry**: Store project names with associated paths (directories or setup scripts)
@@ -38,7 +38,7 @@ Key capabilities:
 
 ## Background
 
-PJM1 is a "clean room" reimplementation of an older project management tool. The original tool was created in an era before AI coding agents, when developer workflows were entirely human-driven.
+PJMAI is a "clean room" reimplementation of an older project management tool. The original tool was created in an era before AI coding agents, when developer workflows were entirely human-driven.
 
 The world has changed significantly:
 - **AI coding agents** (Claude Code, Cursor, Cody, etc.) now work alongside developers
@@ -46,7 +46,7 @@ The world has changed significantly:
 - **Context-aware tooling** helps both humans and AI understand project structure
 - **Environment isolation** (uv, conda, nvm, Docker) is standard practice
 
-This creates an opportunity to evolve PJM1 from a simple project switcher into a comprehensive **project environment manager** that serves both human developers and AI agents.
+This creates an opportunity to evolve PJMAI from a simple project switcher into a comprehensive **project environment manager** that serves both human developers and AI agents.
 
 ---
 
@@ -64,7 +64,7 @@ This creates an opportunity to evolve PJM1 from a simple project switcher into a
 | Shell aliases | Stable | `adpj`, `chpj`, `lspj`, `rmpj`, `shpj`, `prpj`, `hlpj` |
 | Prompt integration | Stable | `prpj` outputs current project name |
 | Tab completion | Partial | Basic completions via `source-pjm.sh` |
-| Shell completions | Generated | `pjm1 completions <shell>` |
+| Shell completions | Generated | `pjmai completions <shell>` |
 | Logging | Stable | `-l` flag with env_logger |
 
 ### Known Issues
@@ -168,7 +168,7 @@ chpj webapp
 ```bash
 cargo build --release
 mkdir -p ~/.local/bin
-cp target/release/pjm1 ~/.local/bin/
+cp target/release/pjmai ~/.local/bin/
 echo 'source /path/to/source-pjm.sh' >> ~/.zshrc
 ```
 
@@ -177,7 +177,7 @@ echo 'source /path/to/source-pjm.sh' >> ~/.zshrc
 **A. Install Script**
 ```bash
 # One-line install
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjm1/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/master/install.sh | bash
 ```
 
 The install script would:
@@ -187,25 +187,25 @@ The install script would:
 4. Download and install `source-pjm.sh`
 5. Detect shell (bash/zsh/fish) and add to appropriate rc file
 6. Generate and install shell completions
-7. Run `pjm1 --help` to verify
+7. Run `pjmai --help` to verify
 
 **B. Homebrew Formula**
 ```bash
-brew tap wrightmikea/pjm1
-brew install pjm1
+brew tap wrightmikea/pjmai
+brew install pjmai
 ```
 
 **C. Cargo Install**
 ```bash
-cargo install pjm1
+cargo install pjmai
 # + manual shell setup, or:
-pjm1 setup --shell  # New command to configure shell
+pjmai setup --shell  # New command to configure shell
 ```
 
 **D. Nix Flake**
 ```nix
 {
-  inputs.pjm1.url = "github:wrightmikea/pjm1";
+  inputs.pjmai.url = "github:wrightmikea/pjmai";
   # ...
 }
 ```
@@ -213,9 +213,9 @@ pjm1 setup --shell  # New command to configure shell
 **E. Self-Setup Command**
 ```bash
 # New command to handle shell integration
-pjm1 setup --shell zsh    # Adds to ~/.zshrc
-pjm1 setup --completions  # Installs shell completions
-pjm1 setup --all          # Full setup
+pjmai setup --shell zsh    # Adds to ~/.zshrc
+pjmai setup --completions  # Installs shell completions
+pjmai setup --all          # Full setup
 ```
 
 ---
@@ -250,7 +250,7 @@ $ lspj --detailed
 ┌────────────┬─────────────────────────┬──────────────────┬───────────┐
 │ Project    │ Path                    │ Tags             │ Last Used │
 ├────────────┼─────────────────────────┼──────────────────┼───────────┤
-│ ▶ pjm1     │ ~/github/wrightmikea/pjm1 │ rust, cli, tools │ 2 min ago │
+│ ▶ pjmai     │ ~/github/wrightmikea/pjmai │ rust, cli, tools │ 2 min ago │
 │   webapp   │ ~/code/webapp           │ web, python      │ 1 day ago │
 │   dotfiles │ ~/dotfiles              │ config           │ 3 days ago│
 └────────────┴─────────────────────────┴──────────────────┴───────────┘
@@ -271,8 +271,8 @@ lspj --recent
 
 ```bash
 # Add notes to a project
-pjm1 note mywebapp "Deploy branch is production"
-pjm1 note mywebapp "Run migrations before testing"
+pjmai note mywebapp "Deploy branch is production"
+pjmai note mywebapp "Run migrations before testing"
 
 # Show notes when switching
 $ chpj mywebapp
@@ -297,12 +297,12 @@ This is a critical improvement area. AI coding agents need:
 
 ```bash
 # Machine-readable output for all commands
-$ pjm1 --json list
+$ pjmai --json list
 {
   "projects": [
     {
-      "name": "pjm1",
-      "path": "/Users/mike/github/wrightmikea/pjm1",
+      "name": "pjmai",
+      "path": "/Users/mike/github/wrightmikea/pjmai",
       "type": "directory",
       "is_current": true,
       "tags": ["rust", "cli"],
@@ -310,33 +310,33 @@ $ pjm1 --json list
       "last_used": "2024-01-15T10:30:00Z"
     }
   ],
-  "current_project": "pjm1",
+  "current_project": "pjmai",
   "total": 5
 }
 
-$ pjm1 --json show
+$ pjmai --json show
 {
-  "name": "pjm1",
-  "path": "/Users/mike/github/wrightmikea/pjm1",
+  "name": "pjmai",
+  "path": "/Users/mike/github/wrightmikea/pjmai",
   "type": "directory",
   "is_current": true
 }
 
 # Errors also in JSON
-$ pjm1 --json change nonexistent
+$ pjmai --json change nonexistent
 {
   "error": "project_not_found",
   "message": "No project found matching 'nonexistent'",
   "suggestions": ["project1", "project2"],
-  "hint": "Use 'pjm1 list' to see all projects"
+  "hint": "Use 'pjmai list' to see all projects"
 }
 ```
 
 #### B. AI-Friendly Help
 
 ```bash
-$ pjm1 help --ai
-# PJM1 CLI - AI Agent Reference
+$ pjmai help --ai
+# PJMAI CLI - AI Agent Reference
 
 ## Purpose
 Manage and switch between development projects via nicknames.
@@ -344,21 +344,21 @@ Manage and switch between development projects via nicknames.
 ## Commands (with expected outputs)
 
 ### List projects
-Command: pjm1 list
+Command: pjmai list
 Output format: One project per line, current project marked with ">"
 Example:
   > project1  ~/path/to/project1
     project2  ~/path/to/project2
 
 ### Switch to project
-Command: pjm1 change <name>
+Command: pjmai change <name>
 Exit codes:
   - 2: Success, output is directory path (shell will cd)
   - 3: Success, output is file path (shell will source)
   - 4: Error, output is error message
 
 ### Add project
-Command: pjm1 add -p <name> -f <path>
+Command: pjmai add -p <name> -f <path>
 Requirements:
   - Path must exist
   - Name must be unique
@@ -379,14 +379,14 @@ All errors include:
 #### C. Project Metadata for AI Context
 
 ```toml
-# ~/.pjm/config.toml (extended format)
-version = "pjm1-0.2.0"
-current_project = "pjm1"
+# ~/.pjmai/config.toml (extended format)
+version = "pjmai-0.2.0"
+current_project = "pjmai"
 
 [[project]]
-name = "pjm1"
+name = "pjmai"
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjm1"
+file_or_dir = "~/github/wrightmikea/pjmai"
 [project.metadata]
 description = "Project manager CLI in Rust"
 language = "rust"
@@ -407,9 +407,9 @@ All public items require doc comments (deny(missing_docs)).
 
 ```bash
 # Output project context in a format suitable for AI system prompts
-$ pjm1 context pjm1
-Project: pjm1
-Path: /Users/mike/github/wrightmikea/pjm1
+$ pjmai context pjmai
+Project: pjmai
+Path: /Users/mike/github/wrightmikea/pjmai
 Type: Rust CLI application
 
 Build: cargo build
@@ -428,7 +428,7 @@ Notes:
 - Shell integration via exit codes
 
 # Or in a format directly usable as context
-$ pjm1 context pjm1 --for-agent
+$ pjmai context pjmai --for-agent
 # Outputs content suitable for inclusion in AI agent context
 ```
 
@@ -447,7 +447,7 @@ Did you mean one of these?
   webapp     ~/code/webapp
   webapi     ~/code/webapi
 
-Tip: Use 'pjm1 list' to see all projects, or 'pjm1 list --filter web' to search.
+Tip: Use 'pjmai list' to see all projects, or 'pjmai list --filter web' to search.
 ```
 
 For AI (with `--json`):
@@ -459,9 +459,9 @@ For AI (with `--json`):
     "input": "web",
     "similar_projects": ["webapp", "webapi"],
     "commands_to_try": [
-      "pjm1 list",
-      "pjm1 list --filter web",
-      "pjm1 add -p web -f <path>"
+      "pjmai list",
+      "pjmai list --filter web",
+      "pjmai add -p web -f <path>"
     ]
   }
 }
@@ -489,20 +489,20 @@ complete -F _pjm_projects chpj rmpj shpj
 
 ```bash
 # Generate optimized completions
-$ pjm1 completions bash --with-projects > ~/.local/share/bash-completion/completions/pjm1
+$ pjmai completions bash --with-projects > ~/.local/share/bash-completion/completions/pjmai
 
-# The completion script calls pjm1 directly for dynamic project list
-_pjm1_complete() {
+# The completion script calls pjmai directly for dynamic project list
+_pjmai_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local cmd="${COMP_WORDS[1]}"
 
     case "$cmd" in
         change|remove|show|context)
-            # Get project names directly from pjm1 (fast, cached)
-            COMPREPLY=($(pjm1 complete projects "$cur" 2>/dev/null))
+            # Get project names directly from pjmai (fast, cached)
+            COMPREPLY=($(pjmai complete projects "$cur" 2>/dev/null))
             ;;
         *)
-            COMPREPLY=($(pjm1 complete commands "$cur" 2>/dev/null))
+            COMPREPLY=($(pjmai complete commands "$cur" 2>/dev/null))
             ;;
     esac
 }
@@ -512,15 +512,15 @@ _pjm1_complete() {
 
 ```bash
 # Fast, purpose-built completion helper
-$ pjm1 complete projects web
+$ pjmai complete projects web
 webapp
 webapi
 webserver
 
-$ pjm1 complete commands ch
+$ pjmai complete commands ch
 change
 
-$ pjm1 complete tags ru
+$ pjmai complete tags ru
 rust
 ruby
 ```
@@ -532,22 +532,22 @@ ruby
 $ chpj <TAB>
 webapp    -- Main web application (Python, Django)
 webapi    -- REST API service (Rust)
-pjm1      -- This project (Rust CLI)
+pjmai      -- This project (Rust CLI)
 ```
 
 **D. Fish Completions**
 
 ```fish
 # fish-specific completions with descriptions
-complete -c pjm1 -n "__fish_use_subcommand" -a change -d "Switch to a project"
-complete -c pjm1 -n "__fish_seen_subcommand_from change" -a "(pjm1 complete projects)"
+complete -c pjmai -n "__fish_use_subcommand" -a change -d "Switch to a project"
+complete -c pjmai -n "__fish_seen_subcommand_from change" -a "(pjmai complete projects)"
 ```
 
 ---
 
 ### 5. Project-Specific Environments
 
-This enables PJM1 to manage complete development environments, not just directories.
+This enables PJMAI to manage complete development environments, not just directories.
 
 #### A. Environment Files
 
@@ -575,15 +575,15 @@ on_exit = ["deactivate"]
 
 ```bash
 # Python with uv
-$ pjm1 add webapp -f ~/code/webapp --venv uv
+$ pjmai add webapp -f ~/code/webapp --venv uv
 # Creates/activates venv automatically on chpj
 
 # Node with nvm
-$ pjm1 add frontend -f ~/code/frontend --node 18
+$ pjmai add frontend -f ~/code/frontend --node 18
 # Runs 'nvm use 18' on entry
 
 # Multiple runtimes
-$ pjm1 add fullstack -f ~/code/fullstack --venv uv --node 20 --ruby 3.2
+$ pjmai add fullstack -f ~/code/fullstack --venv uv --node 20 --ruby 3.2
 ```
 
 #### C. Direnv Integration
@@ -614,7 +614,7 @@ allowed_commands = [
     "cargo", "rustc", "rustfmt",
     "git", "gh",
     "cat", "ls", "find", "grep",
-    "pjm1"
+    "pjmai"
 ]
 # Or exclude dangerous commands
 blocked_commands = [
@@ -622,23 +622,23 @@ blocked_commands = [
     "ssh", "scp", "rsync"
 ]
 # Custom PATH with only safe binaries
-restricted_path = "~/.pjm/sandboxed-bins"
+restricted_path = "~/.pjmai/sandboxed-bins"
 ```
 
 ```bash
 # Generate restricted PATH environment
-$ pjm1 sandbox-setup ai-sandbox
+$ pjmai sandbox-setup ai-sandbox
 Creating sandboxed environment for 'ai-sandbox'...
-Symlinking allowed commands to ~/.pjm/sandboxed-bins/
+Symlinking allowed commands to ~/.pjmai/sandboxed-bins/
   ✓ cargo -> /Users/mike/.cargo/bin/cargo
   ✓ git -> /usr/bin/git
   ...
-Created ~/.pjm/envs/ai-sandbox.sh
+Created ~/.pjmai/envs/ai-sandbox.sh
 
 # When AI agent activates project
 $ chpj ai-sandbox --agent
 🔒 AI Agent mode: restricted PATH active
-Allowed: cargo, git, ls, find, grep, pjm1
+Allowed: cargo, git, ls, find, grep, pjmai
 Blocked: rm, sudo, curl, wget, ssh
 ```
 
@@ -729,7 +729,7 @@ Organize projects logically for easier management.
 $ adpj myproject -f ~/code/myproject --tags work,python,web
 
 # Add tags to existing project
-$ pjm1 tag myproject add frontend
+$ pjmai tag myproject add frontend
 
 # List by tag
 $ lspj --tag work
@@ -744,13 +744,13 @@ $ lspj --tags python,web
 
 ```bash
 # Create a group
-$ pjm1 group create work "Work projects"
-$ pjm1 group create personal "Personal projects"
-$ pjm1 group create oss "Open source contributions"
+$ pjmai group create work "Work projects"
+$ pjmai group create personal "Personal projects"
+$ pjmai group create oss "Open source contributions"
 
 # Add projects to groups
-$ pjm1 group add work webapp api admin-panel
-$ pjm1 group add oss pjm1 rtt1
+$ pjmai group add work webapp api admin-panel
+$ pjmai group add oss pjmai rtt1
 
 # List by group
 $ lspj --group work
@@ -760,7 +760,7 @@ $ lspj --group work
 
 $ lspj --group oss
 [oss]
-  pjm1       ~/github/wrightmikea/pjm1
+  pjmai       ~/github/wrightmikea/pjmai
   rtt1       ~/github/wrightmikea/rtt1
 
 # Switch to a random project in group (for variety)
@@ -771,7 +771,7 @@ $ chpj --random --group oss
 
 ```bash
 # Auto-detect groups from path patterns
-$ pjm1 auto-group
+$ pjmai auto-group
 Detected groups:
   github/wrightmikea (3 projects)
   github/work-org (5 projects)
@@ -799,38 +799,38 @@ on_enter = ["echo 'Work mode: remember to log time!'"]
 
 ```bash
 # Export full configuration
-$ pjm1 config export > pjm-backup.toml
-$ pjm1 config export --format json > pjm-backup.json
+$ pjmai config export > pjm-backup.toml
+$ pjmai config export --format json > pjm-backup.json
 
 # Import configuration
-$ pjm1 config import pjm-backup.toml
+$ pjmai config import pjm-backup.toml
 Importing 15 projects...
   ✓ 12 new projects added
   ⚠ 3 projects already exist (skipped)
 
 # Merge configurations
-$ pjm1 config import colleague-config.toml --merge
+$ pjmai config import colleague-config.toml --merge
 ```
 
 #### B. Sync Across Machines
 
 ```bash
 # Store config in dotfiles repo
-$ pjm1 config link ~/dotfiles/pjm/config.toml
+$ pjmai config link ~/dotfiles/pjm/config.toml
 Configuration linked to ~/dotfiles/pjm/config.toml
 Changes will be reflected automatically.
 
 # Or use Git directly
 $ cd ~/.pjm && git init
 $ git remote add origin git@github.com:user/pjm-config.git
-$ pjm1 config sync  # git pull && git add . && git commit && git push
+$ pjmai config sync  # git pull && git add . && git commit && git push
 ```
 
 #### C. Templates
 
 ```bash
 # Create project from template
-$ pjm1 template create rust-cli
+$ pjmai template create rust-cli
 Template 'rust-cli' created with settings:
   - Tags: rust, cli
   - Build: cargo build
@@ -838,19 +838,19 @@ Template 'rust-cli' created with settings:
   - Environment: RUST_BACKTRACE=1
 
 # Use template
-$ pjm1 add newcli -f ~/code/newcli --template rust-cli
+$ pjmai add newcli -f ~/code/newcli --template rust-cli
 ```
 
 #### D. Machine-Specific Overrides
 
 ```toml
-# ~/.pjm/config.toml
+# ~/.pjmai/config.toml
 [[project]]
 name = "webapp"
 [project.action]
 file_or_dir = "~/code/webapp"
 
-# ~/.pjm/config.local.toml (not synced, machine-specific)
+# ~/.pjmai/config.local.toml (not synced, machine-specific)
 [[project.override]]
 name = "webapp"
 [project.environment]
@@ -867,7 +867,7 @@ Use AI to help configure and manage projects.
 #### A. Smart Project Discovery
 
 ```bash
-$ pjm1 discover
+$ pjmai discover
 Scanning for projects...
 Found 12 potential projects:
 
@@ -882,7 +882,7 @@ Add all discovered projects? [Y/n/select]
 #### B. AI-Assisted Setup
 
 ```bash
-$ pjm1 setup-with-ai webapp
+$ pjmai setup-with-ai webapp
 🤖 Analyzing ~/code/webapp...
 
 Detected:
@@ -909,11 +909,11 @@ Accept this configuration? [Y/n/edit]
 
 ```bash
 # Configure local AI for privacy
-$ pjm1 config set ai.provider ollama
-$ pjm1 config set ai.model codellama
+$ pjmai config set ai.provider ollama
+$ pjmai config set ai.model codellama
 
 # Use AI for project analysis
-$ pjm1 analyze webapp
+$ pjmai analyze webapp
 🤖 Analyzing webapp with Ollama (codellama)...
 
 Project Summary:
@@ -922,7 +922,7 @@ Project Summary:
   Key dependencies: Django 4.2, psycopg2, celery
 
 Suggested improvements:
-  1. Add .pjmrc for environment setup
+  1. Add .pjmairc for environment setup
   2. Create docker-compose for local development
   3. Add pre-commit hooks for code quality
 ```
@@ -930,14 +930,14 @@ Suggested improvements:
 #### D. Natural Language Commands
 
 ```bash
-$ pjm1 ask "which project uses Django?"
+$ pjmai ask "which project uses Django?"
 Projects using Django:
   - webapp (~/code/webapp)
   - admin-panel (~/code/admin)
 
-$ pjm1 ask "switch to my rust CLI project"
-Found: pjm1 (~/github/wrightmikea/pjm1)
-Switch to pjm1? [Y/n]
+$ pjmai ask "switch to my rust CLI project"
+Found: pjmai (~/github/wrightmikea/pjmai)
+Switch to pjmai? [Y/n]
 ```
 
 ---
@@ -950,7 +950,7 @@ Switch to pjm1? [Y/n]
 1. **JSON output mode** (`--json` flag)
 2. **Improved error messages** with suggestions
 3. **Install script** (`install.sh`)
-4. **`pjm1 setup` command** for shell integration
+4. **`pjmai setup` command** for shell integration
 5. **Enhanced tab completion** (dynamic project names)
 6. **Implement debug flag**
 
@@ -959,7 +959,7 @@ Switch to pjm1? [Y/n]
 
 1. **Project metadata** (description, tags, language)
 2. **Project groups**
-3. **`pjm1 context` command** for AI agents
+3. **`pjmai context` command** for AI agents
 4. **Recently-used tracking**
 5. **Configuration export/import**
 6. **Project notes**
@@ -1000,17 +1000,17 @@ Switch to pjm1? [Y/n]
 
 ```toml
 # Version 1 (current)
-version = "pjm1-0.1.0"
-current_project = "pjm1"
+version = "pjmai-0.1.0"
+current_project = "pjmai"
 
 [[project]]
-name = "pjm1"
+name = "pjmai"
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjm1"
+file_or_dir = "~/github/wrightmikea/pjmai"
 
 # Version 2 (proposed)
-version = "pjm1-0.2.0"
-current_project = "pjm1"
+version = "pjmai-0.2.0"
+current_project = "pjmai"
 
 [settings]
 json_output = false
@@ -1022,14 +1022,14 @@ name = "work"
 description = "Work projects"
 
 [[project]]
-name = "pjm1"
+name = "pjmai"
 group = "oss"
 tags = ["rust", "cli"]
 description = "Project manager CLI"
 last_used = "2024-01-15T10:30:00Z"
 
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjm1"
+file_or_dir = "~/github/wrightmikea/pjmai"
 
 [project.metadata]
 language = "rust"
@@ -1115,7 +1115,7 @@ pub enum ExitAction {
 # Enhanced source-pjm.sh
 pjm_fn() {
     local PJM_OUT PJM_EXIT
-    PJM_OUT=$(pjm1 "$@")
+    PJM_OUT=$(pjmai "$@")
     PJM_EXIT=$?
 
     case "$PJM_EXIT" in
@@ -1136,21 +1136,21 @@ _pjm_complete() {
 
     case "$cmd" in
         change|remove|show|context)
-            COMPREPLY=($(pjm1 complete projects "$cur" 2>/dev/null))
+            COMPREPLY=($(pjmai complete projects "$cur" 2>/dev/null))
             ;;
         group)
-            COMPREPLY=($(pjm1 complete groups "$cur" 2>/dev/null))
+            COMPREPLY=($(pjmai complete groups "$cur" 2>/dev/null))
             ;;
         tag)
-            COMPREPLY=($(pjm1 complete tags "$cur" 2>/dev/null))
+            COMPREPLY=($(pjmai complete tags "$cur" 2>/dev/null))
             ;;
         *)
-            COMPREPLY=($(pjm1 complete commands "$cur" 2>/dev/null))
+            COMPREPLY=($(pjmai complete commands "$cur" 2>/dev/null))
             ;;
     esac
 }
 
-complete -F _pjm_complete pjm1 pjm_fn
+complete -F _pjm_complete pjmai pjm_fn
 complete -F _pjm_complete chpj rmpj shpj
 ```
 
@@ -1158,7 +1158,7 @@ complete -F _pjm_complete chpj rmpj shpj
 
 ## Conclusion
 
-PJM1 has a solid foundation. The proposed improvements transform it from a simple project switcher into a comprehensive development environment manager that serves both human developers and AI coding agents.
+PJMAI has a solid foundation. The proposed improvements transform it from a simple project switcher into a comprehensive development environment manager that serves both human developers and AI coding agents.
 
 Key themes:
 1. **Machine-readable output** enables AI agent integration

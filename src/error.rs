@@ -1,4 +1,4 @@
-//! Error types for PJM1
+//! Error types for PJMAI
 
 use std::fmt;
 use std::io;

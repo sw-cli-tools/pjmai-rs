@@ -23,7 +23,7 @@ pub fn init_with_args(args: args::Args) -> Result<Config> {
         unimplemented!("debugging not yet implemented");
     }
 
-    // Initialize the global PjmConfig (reads from PJM_CONFIG_DIR env var or uses default)
+    // Initialize the global PjmConfig (reads from PJMAI_CONFIG_DIR env var or uses default)
     let pjm_config = PjmConfig::new();
     info!("using config dir: {}", pjm_config.config_dir);
     util::init_config(pjm_config);

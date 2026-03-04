@@ -3,10 +3,10 @@
 
 use colored::Colorize;
 use log::info;
-use pjm1::args;
-use pjm1::command;
-use pjm1::config;
-use pjm1::error::Result;
+use pjmai::args;
+use pjmai::command;
+use pjmai::config;
+use pjmai::error::Result;
 
 /// Run the application and return a Result
 fn run() -> Result<()> {
@@ -33,14 +33,14 @@ fn run() -> Result<()> {
         args::Subcommands::Remove { project } => command::remove(project)?,
         args::Subcommands::Show {} => command::show()?,
     }
-    info!(target:"pjm1::main", "finished");
+    info!(target:"pjmai::main", "finished");
     Ok(())
 }
 
 /// Entry point
 fn main() {
     env_logger::init();
-    info!(target:"pjm1::main", "env_logger initialized");
+    info!(target:"pjmai::main", "env_logger initialized");
 
     if let Err(e) = run() {
         eprintln!("{}: {}", "error".red().bold(), e);

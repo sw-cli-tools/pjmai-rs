@@ -32,21 +32,21 @@ type ProjectPath = String;
 type SerializedRegistry = String;
 
 /// Environment variable name for custom config directory
-pub const PJM_CONFIG_DIR_ENV: &str = "PJM_CONFIG_DIR";
+pub const PJMAI_CONFIG_DIR_ENV: &str = "PJMAI_CONFIG_DIR";
 
 /// Configuration for PJM paths
 #[derive(Debug, Clone)]
 pub struct PjmConfig {
-    /// The directory containing the config file (e.g., ~/.pjm)
+    /// The directory containing the config file (e.g., ~/.pjmai)
     pub config_dir: String,
 }
 
 impl PjmConfig {
     /// Create a new PjmConfig by checking the environment variable or using the default
     pub fn new() -> Self {
-        let config_dir = std::env::var(PJM_CONFIG_DIR_ENV).unwrap_or_else(|_| {
+        let config_dir = std::env::var(PJMAI_CONFIG_DIR_ENV).unwrap_or_else(|_| {
             let home = std::env::var("HOME").expect("HOME environment variable not set");
-            format!("{}/.pjm", home)
+            format!("{}/.pjmai", home)
         });
         PjmConfig { config_dir }
     }

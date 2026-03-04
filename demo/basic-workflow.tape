@@ -1,4 +1,4 @@
-# Basic PJM1 Workflow Demo
+# Basic PJMAI Workflow Demo
 # This tape demonstrates the core workflow using shell aliases
 # Run ./demo/setup-demo.sh before recording this tape
 
@@ -12,10 +12,10 @@ Set Height 400
 Set Theme "Dracula"
 Set TypingSpeed 50ms
 
-Env PJM_CONFIG_DIR "/tmp/pjm1-demo"
-Env PATH "/Users/mike/github/wrightmikea/pjm1/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+Env PJMAI_CONFIG_DIR "/tmp/pjmai-demo"
+Env PATH "/Users/mike/github/wrightmikea/pjmai/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
-Type "# PJM1 - Project Management CLI"
+Type "# PJMAI - Project Management CLI"
 Enter
 Sleep 500ms
 

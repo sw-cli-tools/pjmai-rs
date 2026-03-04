@@ -8,12 +8,12 @@ Set Height 600
 Set Theme "Dracula"
 Set TypingSpeed 40ms
 
-Env PJM_CONFIG_DIR "/tmp/pjm1-demo"
-Env PATH "/Users/mike/github/wrightmikea/pjm1/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+Env PJMAI_CONFIG_DIR "/tmp/pjmai-demo"
+Env PATH "/Users/mike/github/wrightmikea/pjmai/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 Type "# =========================================="
 Enter
-Type "# PJM1 - Project Management CLI Demo"
+Type "# PJMAI - Project Management CLI Demo"
 Enter
 Type "# =========================================="
 Enter

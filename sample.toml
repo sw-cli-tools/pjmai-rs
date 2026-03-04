@@ -1,4 +1,4 @@
-version = "pjm1-0.1.0"
+version = "pjmai-0.1.0"
 
 [[project]]
 name = "rtt1"
@@ -7,10 +7,10 @@ name = "rtt1"
 file_or_dir = "~/github/wrightmikea/rtt1"
 
 [[project]]
-name = "pjm1"
+name = "pjmai"
 
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjm1/.pjmrc"
+file_or_dir = "~/github/wrightmikea/pjmai/.pjmairc"
 
 [[project]]
 name = "mr"

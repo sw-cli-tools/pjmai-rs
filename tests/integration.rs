@@ -1,6 +1,6 @@
-//! Integration tests for pjm1
+//! Integration tests for pjmai
 //!
-//! These tests use a temporary config directory via the PJM_CONFIG_DIR environment variable
+//! These tests use a temporary config directory via the PJMAI_CONFIG_DIR environment variable
 //! to ensure tests don't affect the user's actual configuration.
 
 use assert_cmd::Command;
@@ -9,9 +9,9 @@ use std::fs;
 use tempfile::TempDir;
 
 /// Helper to create a command with a temp config directory
-fn pjm1_cmd(temp_dir: &TempDir) -> Command {
-    let mut cmd = Command::cargo_bin("pjm1").unwrap();
-    cmd.env("PJM_CONFIG_DIR", temp_dir.path());
+fn pjmai_cmd(temp_dir: &TempDir) -> Command {
+    let mut cmd = Command::cargo_bin("pjmai").unwrap();
+    cmd.env("PJMAI_CONFIG_DIR", temp_dir.path());
     cmd
 }
 
@@ -40,7 +40,7 @@ project = []
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["list"])
         .assert()
         .success()
@@ -64,7 +64,7 @@ project = []
     )
     .unwrap();
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args([
             "add",
             "-p",
@@ -101,13 +101,13 @@ project = []
     .unwrap();
 
     // Add first project
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["add", "-p", "first", "-f", proj1.to_str().unwrap()])
         .assert()
         .success();
 
     // Add second project
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["add", "-p", "second", "-f", proj2.to_str().unwrap()])
         .assert()
         .success();
@@ -140,7 +140,7 @@ file_or_dir = "/tmp/beta"
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["list"])
         .assert()
         .success()
@@ -162,7 +162,7 @@ file_or_dir = "/tmp/myproj"
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["show"])
         .assert()
         .success()
@@ -183,7 +183,7 @@ file_or_dir = "/tmp/activeproj"
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["prompt"])
         .assert()
         .success()
@@ -199,7 +199,7 @@ project = []
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["prompt"])
         .assert()
         .success()
@@ -226,7 +226,7 @@ file_or_dir = "/tmp/beta"
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["remove", "-p", "beta"])
         .assert()
         .success();
@@ -256,7 +256,7 @@ file_or_dir = "/tmp/beta"
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["remove", "-p", "alpha"])
         .assert()
         .success();
@@ -292,7 +292,7 @@ file_or_dir = "/tmp/existing"
     )
     .unwrap();
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["add", "-p", "existing", "-f", proj_dir.to_str().unwrap()])
         .assert()
         .failure()
@@ -308,7 +308,7 @@ project = []
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["add", "-p", "bad", "-f", "/nonexistent/path/that/does/not/exist"])
         .assert()
         .failure()
@@ -324,7 +324,7 @@ project = []
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "nonexistent"])
         .assert()
         .code(4)
@@ -345,7 +345,7 @@ file_or_dir = "/nonexistent/path"
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "badproj"])
         .assert()
         .code(4)
@@ -365,7 +365,7 @@ project = []
 "#,
     );
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["aliases"])
         .assert()
         .success()
@@ -394,7 +394,7 @@ fn test_config_directory_created_when_missing() {
     let proj_dir = temp_dir.path().join("proj");
     fs::create_dir(&proj_dir).unwrap();
 
-    // Running pjm1 should prompt for creation - but since we can't interact,
+    // Running pjmai should prompt for creation - but since we can't interact,
     // let's pre-create the directory and test that it works
     fs::create_dir_all(&nested_config_dir).unwrap();
     fs::write(
@@ -406,8 +406,8 @@ project = []
     )
     .unwrap();
 
-    let mut cmd = Command::cargo_bin("pjm1").unwrap();
-    cmd.env("PJM_CONFIG_DIR", &nested_config_dir)
+    let mut cmd = Command::cargo_bin("pjmai").unwrap();
+    cmd.env("PJMAI_CONFIG_DIR", &nested_config_dir)
         .args(["add", "-p", "test", "-f", proj_dir.to_str().unwrap()])
         .assert()
         .success();
@@ -440,7 +440,7 @@ file_or_dir = "{}"
     )
     .unwrap();
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "dirproj"])
         .assert()
         .code(2)
@@ -470,7 +470,7 @@ file_or_dir = "{}"
     )
     .unwrap();
 
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "fileproj"])
         .assert()
         .code(3)
@@ -505,7 +505,7 @@ file_or_dir = "{}"
     .unwrap();
 
     // "web" should match "webapp" via prefix
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "web"])
         .assert()
         .code(2)
@@ -536,7 +536,7 @@ file_or_dir = "{}"
     .unwrap();
 
     // "myproject" should match "MyProject" case-insensitively
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "myproject"])
         .assert()
         .code(2)
@@ -576,7 +576,7 @@ file_or_dir = "{}"
     .unwrap();
 
     // "web" should be ambiguous (matches both webapp and webapi)
-    pjm1_cmd(&temp_dir)
+    pjmai_cmd(&temp_dir)
         .args(["change", "-p", "web"])
         .assert()
         .code(4)

@@ -1,10 +1,10 @@
-# PJM1 - Project Management CLI
+# PJMAI - Project Management CLI
 
 A Rust CLI tool for managing and quickly switching between projects via shell aliases.
 
 ## Overview
 
-PJM1 helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands.
+PJMAI helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands.
 
 ## Installation
 
@@ -12,15 +12,15 @@ PJM1 helps developers manage multiple projects by maintaining a registry of proj
 
 ```bash
 # Clone the repository
-git clone https://github.com/wrightmikea/pjm1.git
-cd pjm1
+git clone https://github.com/wrightmikea/pjmai.git
+cd pjmai
 
 # Build the binary
 cargo build --release
 
 # Copy to your PATH (create ~/.local/bin if needed)
 mkdir -p ~/.local/bin
-cp target/release/pjm1 ~/.local/bin/
+cp target/release/pjmai ~/.local/bin/
 ```
 
 ### Shell Integration (Required)
@@ -29,23 +29,23 @@ Add the following to your shell's rc file:
 
 **For Zsh (~/.zshrc) on macOS:**
 ```bash
-# PJM1 project management
+# PJMAI project management
 export PATH="$HOME/.local/bin:$PATH"
-source /path/to/pjm1/source-pjm.sh
+source /path/to/pjmai/source-pjm.sh
 ```
 
 **For Bash (~/.bashrc) on Linux:**
 ```bash
-# PJM1 project management
+# PJMAI project management
 export PATH="$HOME/.local/bin:$PATH"
-source /path/to/pjm1/source-pjm.sh
+source /path/to/pjmai/source-pjm.sh
 ```
 
 Then reload your shell: `source ~/.zshrc` (or `~/.bashrc`)
 
 This sets up:
 - Shell aliases (`adpj`, `chpj`, `lspj`, etc.)
-- A wrapper function that allows PJM1 to change your working directory
+- A wrapper function that allows PJMAI to change your working directory
 
 ## Quick Start
 
@@ -70,14 +70,14 @@ prpj
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `pjm1 add -p <name> -f <path>` | `adpj` | Add a new project |
-| `pjm1 change -p <name>` | `chpj` | Switch to a project |
-| `pjm1 list` | `lspj` | List all projects |
-| `pjm1 remove -p <name>` | `rmpj` | Remove a project |
-| `pjm1 show` | `shpj` | Show current project |
-| `pjm1 prompt` | `prpj` | Output current project name (for prompts) |
-| `pjm1 aliases` | `hlpj` | Show all available aliases |
-| `pjm1 completions <shell>` | - | Generate shell completions |
+| `pjmai add -p <name> -f <path>` | `adpj` | Add a new project |
+| `pjmai change -p <name>` | `chpj` | Switch to a project |
+| `pjmai list` | `lspj` | List all projects |
+| `pjmai remove -p <name>` | `rmpj` | Remove a project |
+| `pjmai show` | `shpj` | Show current project |
+| `pjmai prompt` | `prpj` | Output current project name (for prompts) |
+| `pjmai aliases` | `hlpj` | Show all available aliases |
+| `pjmai completions <shell>` | - | Generate shell completions |
 
 ## Shell Completions
 
@@ -85,23 +85,23 @@ Generate and install shell completions for tab-completion support:
 
 ```bash
 # Bash (add to ~/.bashrc)
-pjm1 completions bash > ~/.local/share/bash-completion/completions/pjm1
+pjmai completions bash > ~/.local/share/bash-completion/completions/pjmai
 
 # Zsh (add to ~/.zshrc or a file in your fpath)
-pjm1 completions zsh > ~/.zsh/completions/_pjm1
+pjmai completions zsh > ~/.zsh/completions/_pjmai
 
 # Fish
-pjm1 completions fish > ~/.config/fish/completions/pjm1.fish
+pjmai completions fish > ~/.config/fish/completions/pjmai.fish
 
 # PowerShell
-pjm1 completions powershell >> $PROFILE
+pjmai completions powershell >> $PROFILE
 ```
 
 ## Usage Scenarios
 
 ### Setting Up a New Project
 
-When starting work on a new project, add it to PJM1:
+When starting work on a new project, add it to PJMAI:
 
 ```bash
 # Add a directory-based project
@@ -166,21 +166,21 @@ rmpj -p oldproject
 
 ## Configuration
 
-PJM1 stores its configuration at `~/.pjm/config.toml`. The file is created automatically on first use.
+PJMAI stores its configuration at `~/.pjmai/config.toml`. The file is created automatically on first use.
 
 ### Custom Configuration Directory
 
-Set the `PJM_CONFIG_DIR` environment variable to use a different configuration directory:
+Set the `PJMAI_CONFIG_DIR` environment variable to use a different configuration directory:
 
 ```bash
-export PJM_CONFIG_DIR=~/my-custom-config
+export PJMAI_CONFIG_DIR=~/my-custom-config
 ```
 
 This is useful for testing or maintaining separate project registries.
 
 ## How It Works
 
-PJM1 uses exit codes to communicate with the shell wrapper script:
+PJMAI uses exit codes to communicate with the shell wrapper script:
 
 - **Exit 2**: The output is a directory path; the shell will `cd` to it
 - **Exit 3**: The output is a file path; the shell will `source` it
@@ -211,7 +211,7 @@ cargo clippy --all-targets --all-features
 ### Running with Logging
 
 ```bash
-RUST_LOG=info pjm1 -l list
+RUST_LOG=info pjmai -l list
 ```
 
 ## Demo Recordings
