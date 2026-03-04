@@ -436,7 +436,11 @@ install_prompt() {
 
     export PATH="${INSTALL_PREFIX}:$PATH"
 
-    if pjmai setup --prompt 2>&1 | grep -q "✓"; then
+    # Run setup --prompt and capture output
+    local output
+    output=$(pjmai setup --prompt 2>&1)
+
+    if echo "$output" | grep -q "prompt integration"; then
         success "Prompt integration installed"
     else
         warn "Prompt integration may have failed. Run 'pjmai setup --prompt' manually."
