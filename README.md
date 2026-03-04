@@ -13,7 +13,7 @@ PJMAI-RS helps developers manage multiple projects by maintaining a registry of 
 Install pjmai with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash
 ```
 
 This will:
@@ -26,20 +26,20 @@ This will:
 Options:
 ```bash
 # Install to a custom location
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --prefix /usr/local/bin
+curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash -s -- --prefix /usr/local/bin
 
 # Skip shell integration (configure manually later)
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --no-shell
+curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash -s -- --no-shell
 
 # Skip completions
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --no-completions
+curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash -s -- --no-completions
 ```
 
 ### From Source (Manual)
 
 ```bash
 # Clone the repository
-git clone https://github.com/wrightmikea/pjmai.git
+git clone https://github.com/sw-cli-tools/pjmai-rs.git
 cd pjmai
 
 # Build the binary

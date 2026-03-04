@@ -91,7 +91,7 @@ After sourcing `source-pjm.sh` (or running `pjmai setup`):
 
 **Quick install** (from GitHub, once repo is public):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash
 ```
 
 **Local install** (for development):

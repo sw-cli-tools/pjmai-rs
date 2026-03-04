@@ -1,6 +1,6 @@
 #!/bin/bash
-# PJMAI Install Script
-# One-line install: curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
+# PJMAI-RS Install Script
+# One-line install: curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash
 #
 # Options:
 #   --no-shell        Skip shell integration (don't modify rc files)
@@ -13,7 +13,7 @@
 set -e
 
 # Default configuration
-REPO_URL="https://github.com/wrightmikea/pjmai"
+REPO_URL="https://github.com/sw-cli-tools/pjmai-rs"
 INSTALL_PREFIX="${HOME}/.local/bin"
 INSTALL_SHELL=true
 INSTALL_COMPLETIONS=true
@@ -50,7 +50,7 @@ error() {
 # Show help
 show_help() {
     cat << EOF
-PJMAI Install Script
+PJMAI-RS Install Script
 
 Usage: install.sh [OPTIONS]
 
@@ -65,13 +65,13 @@ Options:
 
 Examples:
     # Standard installation
-    curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash
 
     # Install to custom location
-    curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --prefix /usr/local/bin
+    curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash -s -- --prefix /usr/local/bin
 
     # Install without modifying shell rc files
-    curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --no-shell
+    curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash -s -- --no-shell
 
     # Install from local directory (for development)
     ./install.sh --local .
@@ -259,11 +259,11 @@ Make sure the repository exists and is accessible."
     cd "$build_dir"
     cargo build --release 2>&1 | grep -E '^(   Compiling|    Finished)' | sed 's/^/    /' || true
 
-    if [[ ! -f "target/release/pjmai" ]]; then
-        error "Build failed: binary not found at target/release/pjmai"
+    if [[ ! -f "target/release/pjmai-rs" ]]; then
+        error "Build failed: binary not found at target/release/pjmai-rs"
     fi
 
-    BINARY_PATH="${build_dir}/target/release/pjmai"
+    BINARY_PATH="${build_dir}/target/release/pjmai-rs"
     SOURCE_SCRIPT_PATH="${build_dir}/source-pjm.sh"
 
     success "Build completed"
@@ -480,7 +480,7 @@ run_scan() {
 print_instructions() {
     echo ""
     echo "============================================"
-    success "PJMAI installation complete!"
+    success "PJMAI-RS installation complete!"
     echo "============================================"
     echo ""
     echo "To start using pjmai, reload your shell:"
@@ -516,7 +516,7 @@ print_instructions() {
 main() {
     echo ""
     echo "============================================"
-    info "PJMAI Installer"
+    info "PJMAI-RS Installer"
     echo "============================================"
     echo ""
 
