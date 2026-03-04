@@ -54,4 +54,26 @@ name = "existing"
 file_or_dir = "/tmp/error-demo-project"
 EOF
 
+# Create config for prompt-integration demo
+mkdir -p /tmp/pjmai-prompt-demo
+cat > /tmp/pjmai-prompt-demo/config.toml << 'EOF'
+version = "0.1.0"
+current_project = ""
+project = []
+stack = []
+EOF
+
+# Create project directories for prompt demo
+mkdir -p /tmp/projects/{webapp,api,config}
+
+# Create a prompt setup script for the demo
+cat > /tmp/pjmai-prompt-demo/setup-prompt.sh << 'PROMPT_EOF'
+# Prompt function for demo
+_pjm_prompt() {
+  local proj=$(prpj 2>/dev/null)
+  [[ -n "$proj" ]] && echo "[$proj] "
+}
+PS1='$(_pjm_prompt)\w \$ '
+PROMPT_EOF
+
 echo "Demo environment ready!"

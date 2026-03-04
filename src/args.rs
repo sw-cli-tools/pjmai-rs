@@ -135,6 +135,10 @@ pub enum Subcommands {
         /// Only install shell completions
         #[arg(long, conflicts_with = "shell_only")]
         completions_only: bool,
+
+        /// Add project indicator to shell prompt
+        #[arg(long)]
+        prompt: bool,
     },
 
     /// Scan directories for git repositories and add them as projects; alias scpj

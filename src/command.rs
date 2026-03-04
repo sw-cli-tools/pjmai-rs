@@ -856,6 +856,7 @@ pub fn setup(
     shell: Option<Shell>,
     shell_only: bool,
     completions_only: bool,
+    prompt: bool,
     json: bool,
 ) -> Result<()> {
     info!("setup");
@@ -870,6 +871,7 @@ pub fn setup(
 
     let do_shell = !completions_only;
     let do_completions = !shell_only;
+    let do_prompt = prompt;
 
     // Install shell integration
     if do_shell {
@@ -923,6 +925,38 @@ pub fn setup(
                 let message = format!("Failed to install completions: {}", e);
                 actions.push(SetupAction {
                     action: "completions".to_string(),
+                    success: false,
+                    message: message.clone(),
+                });
+                if !json {
+                    println!("{} {}", "✗".red(), message);
+                }
+            }
+        }
+    }
+
+    // Install prompt integration
+    if do_prompt {
+        match install_prompt(detected_shell) {
+            Ok((path, already_installed)) => {
+                let message = if already_installed {
+                    format!("Prompt integration already present in {}", path)
+                } else {
+                    format!("Added prompt integration to {}", path)
+                };
+                actions.push(SetupAction {
+                    action: "prompt".to_string(),
+                    success: true,
+                    message: message.clone(),
+                });
+                if !json {
+                    println!("{} {}", "✓".green(), message);
+                }
+            }
+            Err(e) => {
+                let message = format!("Failed to install prompt integration: {}", e);
+                actions.push(SetupAction {
+                    action: "prompt".to_string(),
                     success: false,
                     message: message.clone(),
                 });
@@ -1152,6 +1186,71 @@ fn install_completions(shell: Shell) -> std::result::Result<String, String> {
     }
 
     Ok(completions_path)
+}
+
+/// Install prompt integration to RC file
+/// Returns (rc_file_path, already_installed)
+fn install_prompt(shell: Shell) -> std::result::Result<(String, bool), String> {
+    let rc_file = get_rc_file(shell);
+    let rc_path_str = rc_file.to_string_lossy().to_string();
+
+    let marker = "# PJMAI prompt integration";
+
+    // Shell-specific prompt configuration
+    let prompt_code = match shell {
+        Shell::Zsh => {
+            r#"
+# PJMAI prompt integration
+_pjm_prompt() {
+  local proj=$(prpj 2>/dev/null)
+  [[ -n "$proj" ]] && echo "[$proj] "
+}
+setopt PROMPT_SUBST
+PROMPT='$(_pjm_prompt)%~ %# '
+"#
+        }
+        Shell::Bash => {
+            r#"
+# PJMAI prompt integration
+_pjm_prompt() {
+  local proj=$(prpj 2>/dev/null)
+  [[ -n "$proj" ]] && echo "[$proj] "
+}
+PS1='$(_pjm_prompt)\w \$ '
+"#
+        }
+        Shell::Fish => {
+            return Err("Fish prompt integration not yet supported. Add to your fish_prompt function: set -l proj (prpj 2>/dev/null); and echo -n \"[$proj] \"".to_string());
+        }
+        _ => {
+            return Err(format!("Prompt integration for {:?} not supported", shell));
+        }
+    };
+
+    // Read existing rc file content
+    let existing_content = fs::read_to_string(&rc_file).unwrap_or_default();
+
+    // Check if already installed
+    if existing_content.contains(marker) {
+        return Ok((rc_path_str, true));
+    }
+
+    // Ensure parent directory exists
+    if let Some(parent) = rc_file.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    // Append to rc file
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&rc_file)
+        .map_err(|e| format!("Failed to open {}: {}", rc_path_str, e))?;
+
+    writeln!(file, "{}", prompt_code)
+        .map_err(|e| format!("Failed to write to {}: {}", rc_path_str, e))?;
+
+    Ok((rc_path_str, false))
 }
 
 // ============================================================

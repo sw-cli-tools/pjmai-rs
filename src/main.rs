@@ -47,7 +47,8 @@ fn run() -> Result<()> {
             shell,
             shell_only,
             completions_only,
-        } => command::setup(*shell, *shell_only, *completions_only, json)?,
+            prompt,
+        } => command::setup(*shell, *shell_only, *completions_only, *prompt, json)?,
         args::Subcommands::Show {} => command::show(json)?,
     }
     info!(target:"pjmai::main", "finished");
