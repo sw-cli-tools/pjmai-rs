@@ -8,7 +8,34 @@ PJMAI helps developers manage multiple projects by maintaining a registry of pro
 
 ## Installation
 
-### From Source
+### Quick Install (Recommended)
+
+Install pjmai with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
+```
+
+This will:
+- Clone and build from source (requires git and Rust)
+- Install the binary to `~/.local/bin/`
+- Install shell integration script
+- Configure your shell (bash, zsh, or fish)
+- Install shell completions
+
+Options:
+```bash
+# Install to a custom location
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --prefix /usr/local/bin
+
+# Skip shell integration (configure manually later)
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --no-shell
+
+# Skip completions
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash -s -- --no-completions
+```
+
+### From Source (Manual)
 
 ```bash
 # Clone the repository
@@ -21,9 +48,12 @@ cargo build --release
 # Copy to your PATH (create ~/.local/bin if needed)
 mkdir -p ~/.local/bin
 cp target/release/pjmai ~/.local/bin/
+
+# Run setup to configure your shell
+pjmai setup
 ```
 
-### Shell Integration (Required)
+### Shell Integration (Required for Manual Install)
 
 **Option 1: Automatic Setup (Recommended)**
 

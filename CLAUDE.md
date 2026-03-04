@@ -64,9 +64,30 @@ After sourcing `source-pjm.sh` (or running `pjmai setup`):
 - `prpj` - Get project name for shell prompt
 - `hlpj` - Show all aliases
 
+## Installation
+
+**Quick install** (from GitHub, once repo is public):
+```bash
+curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
+```
+
+**Local install** (for development):
+```bash
+./install.sh --local .
+./install.sh --local . --prefix /usr/local/bin  # Custom prefix
+./install.sh --local . --no-shell               # Skip shell config
+```
+
+The install script:
+- Builds from source (requires git and cargo)
+- Installs binary to `~/.local/bin/` (or custom prefix)
+- Installs `source-pjm.sh` to `~/.pjmai/`
+- Configures shell rc file (bash/zsh/fish)
+- Installs shell completions
+
 ## Setup Command
 
-Auto-configure shell integration:
+Auto-configure shell integration (after manual binary install):
 
 ```bash
 pjmai setup              # Auto-detect shell, install everything
