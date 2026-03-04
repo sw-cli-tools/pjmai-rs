@@ -79,6 +79,52 @@ prpj
 | `pjmai aliases` | `hlpj` | Show all available aliases |
 | `pjmai completions <shell>` | - | Generate shell completions |
 
+### Global Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--json` | `-j` | Output in JSON format for machine parsing |
+| `--logging` | `-l` | Enable logging |
+| `--debug` | `-d` | Enable debug mode |
+
+## JSON Output Mode
+
+Use the `--json` flag to get machine-readable JSON output, useful for scripting and AI agent integration:
+
+```bash
+# List projects as JSON
+pjmai --json list
+{
+  "projects": [
+    {
+      "name": "webapp",
+      "path": "/home/user/code/webapp",
+      "type": "directory",
+      "is_current": true
+    }
+  ],
+  "current_project": "webapp",
+  "total": 1
+}
+
+# Show current project as JSON
+pjmai --json show
+{
+  "name": "webapp",
+  "path": "/home/user/code/webapp",
+  "type": "directory"
+}
+
+# Errors include suggestions in JSON
+pjmai --json change -p notfound
+{
+  "code": "PROJECT_NOT_FOUND",
+  "message": "Project 'notfound' not found",
+  "similar_projects": ["webapp", "webapi"],
+  "hint": "Use 'pjmai list' to see all projects"
+}
+```
+
 ## Shell Completions
 
 Generate and install shell completions for tab-completion support:

@@ -12,6 +12,7 @@ PJMAI is a Rust CLI tool for managing and switching between projects via shell a
 cargo build              # Build the project
 cargo check              # Check without building
 cargo test               # Run tests
+cargo test test_name     # Run a single test
 cargo clippy --all-targets --all-features  # Run linter
 ```
 
@@ -20,15 +21,18 @@ cargo clippy --all-targets --all-features  # Run linter
 **Shell Integration**: The `source-pjm.sh` script wraps the binary with a shell function that interprets exit codes:
 - Exit 2: Change directory (`cd` to output path)
 - Exit 3: Source file (`. output_path`)
+- Exit 4: Error occurred (display error message)
 - Other: Print output to console
 
 This allows the CLI to affect the parent shell environment (which a subprocess normally cannot do).
 
-**Module Structure**:
-- `args.rs` - CLI argument parsing via structopt
-- `command.rs` - Command implementations (add, change, list, remove, show, prompt, aliases)
+**Module Structure** (all in `src/`):
+- `args.rs` - CLI argument parsing via clap derive
+- `command.rs` - Command implementations (add, change, list, remove, show, prompt, aliases, completions)
 - `config.rs` - Configuration initialization and argument routing
 - `projects.rs` - Data models (`ProjectsRegistry`, `ChangeToProject`, `Action`)
+- `error.rs` - Custom error types (`PjmError`, `Result<T>`)
+- `output.rs` - JSON output structures for `--json` flag
 - `io.rs` - TOML file read/write operations
 - `util.rs` - Path expansion, file checks
 
@@ -39,6 +43,15 @@ This allows the CLI to affect the parent shell environment (which a subprocess n
 The codebase enforces strict compiler settings via `#![deny(warnings, missing_docs)]`:
 - All warnings are treated as errors
 - All public items must have doc comments
+
+## Testing
+
+Integration tests use `PJMAI_CONFIG_DIR` environment variable to isolate test config from user config:
+
+```bash
+PJMAI_CONFIG_DIR=/tmp/test-pjmai cargo test    # Run with custom config dir
+RUST_LOG=info pjmai -l list                     # Run with logging enabled
+```
 
 ## Shell Aliases
 
@@ -51,6 +64,16 @@ After sourcing `source-pjm.sh`:
 - `prpj` - Get project name for shell prompt
 - `hlpj` - Show all aliases
 
-## Known Issue
+## JSON Output Mode
 
-The serde_derive dependency (1.0.104) is outdated and causes cfg-related warnings with recent Rust versions. Run `cargo update -p serde_derive` to update.
+Use `--json` or `-j` flag for machine-readable output (useful for AI agents and scripting):
+
+```bash
+pjmai --json list          # List projects as JSON
+pjmai --json show          # Show current project as JSON
+pjmai --json change -p x   # Change outputs JSON (with error details if not found)
+```
+
+## Fuzzy Matching
+
+The `change` command supports fuzzy matching: exact match, case-insensitive, prefix match, and substring match. Ambiguous matches show all candidates.

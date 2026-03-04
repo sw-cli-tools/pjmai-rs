@@ -9,6 +9,8 @@ use log::info;
 pub struct Config {
     /// The subcommands
     pub command: args::Subcommands,
+    /// Output in JSON format
+    pub json: bool,
 }
 
 /// Establish the configuration from pre-parsed arguments
@@ -31,5 +33,6 @@ pub fn init_with_args(args: args::Args) -> Result<Config> {
     util::check()?;
     Ok(Config {
         command: args.command,
+        json: args.json,
     })
 }

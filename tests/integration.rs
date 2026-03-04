@@ -585,3 +585,123 @@ file_or_dir = "{}"
         .stdout(predicate::str::contains("webapp"))
         .stdout(predicate::str::contains("webapi"));
 }
+
+// ============================================================
+// JSON output tests
+// ============================================================
+
+#[test]
+fn test_json_list_empty() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""projects": []"#))
+        .stdout(predicate::str::contains(r#""total": 0"#));
+}
+
+#[test]
+fn test_json_list_with_projects() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""name": "myproject""#))
+        .stdout(predicate::str::contains(r#""type": "directory""#))
+        .stdout(predicate::str::contains(r#""is_current": true"#))
+        .stdout(predicate::str::contains(r#""total": 1"#));
+}
+
+#[test]
+fn test_json_show() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""name": "myproject""#))
+        .stdout(predicate::str::contains(r#""type": "directory""#));
+}
+
+#[test]
+fn test_json_change_not_found() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "change", "-p", "nonexistent"])
+        .assert()
+        .code(4)
+        .stdout(predicate::str::contains(r#""code": "PROJECT_NOT_FOUND""#))
+        .stdout(predicate::str::contains(r#""hint":"#));
+}
+
+#[test]
+fn test_json_aliases() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "aliases"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""aliases":"#))
+        .stdout(predicate::str::contains(r#""alias": "adpj""#))
+        .stdout(predicate::str::contains(r#""alias": "chpj""#));
+}

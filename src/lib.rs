@@ -16,6 +16,9 @@ pub mod error;
 /// I/O functions
 pub mod io;
 
+/// Output formatting (human and JSON)
+pub mod output;
+
 /// Projects Model
 pub mod projects;
 

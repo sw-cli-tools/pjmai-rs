@@ -20,18 +20,19 @@ fn run() -> Result<()> {
     }
 
     let config = config::init_with_args(parsed_args)?;
+    let json = config.json;
     match &config.command {
         args::Subcommands::Add {
             project,
             file_or_dir,
-        } => command::add(project, file_or_dir)?,
-        args::Subcommands::Aliases {} => command::aliases(),
-        args::Subcommands::Change { project } => command::change(project)?,
+        } => command::add(project, file_or_dir, json)?,
+        args::Subcommands::Aliases {} => command::aliases(json),
+        args::Subcommands::Change { project } => command::change(project, json)?,
         args::Subcommands::Completions { .. } => unreachable!(), // handled above
-        args::Subcommands::List {} => command::list()?,
-        args::Subcommands::Prompt {} => command::prompt()?,
-        args::Subcommands::Remove { project } => command::remove(project)?,
-        args::Subcommands::Show {} => command::show()?,
+        args::Subcommands::List {} => command::list(json)?,
+        args::Subcommands::Prompt {} => command::prompt(json)?,
+        args::Subcommands::Remove { project } => command::remove(project, json)?,
+        args::Subcommands::Show {} => command::show(json)?,
     }
     info!(target:"pjmai::main", "finished");
     Ok(())

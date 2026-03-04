@@ -21,6 +21,10 @@ pub struct Args {
     #[arg(long, short)]
     pub debug: bool,
 
+    /// Output in JSON format for machine parsing
+    #[arg(long, short = 'j')]
+    pub json: bool,
+
     /// Logs to a log file. -l must precede subcommands
     #[arg(long, short)]
     pub logging: bool,
@@ -113,6 +117,7 @@ mod tests {
                     file_or_dir: "~/gh/wma/pjmai".to_string(),
                 },
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "add", "-p", "pjmai", "-f", "~/gh/wma/pjmai"]).unwrap()
@@ -128,6 +133,7 @@ mod tests {
                     file_or_dir: "/tmp/project".to_string(),
                 },
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "a", "-p", "myproject", "-f", "/tmp/project"]).unwrap()
@@ -142,6 +148,7 @@ mod tests {
                     project: "myproject".to_string(),
                 },
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "change", "-p", "myproject"]).unwrap()
@@ -156,6 +163,7 @@ mod tests {
                     project: "foo".to_string(),
                 },
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "c", "-p", "foo"]).unwrap()
@@ -168,6 +176,7 @@ mod tests {
             Args {
                 command: Subcommands::List {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "list"]).unwrap()
@@ -180,6 +189,7 @@ mod tests {
             Args {
                 command: Subcommands::List {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "l"]).unwrap()
@@ -194,6 +204,7 @@ mod tests {
                     project: "oldproject".to_string(),
                 },
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "remove", "-p", "oldproject"]).unwrap()
@@ -208,6 +219,7 @@ mod tests {
                     project: "bar".to_string(),
                 },
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "r", "-p", "bar"]).unwrap()
@@ -220,6 +232,7 @@ mod tests {
             Args {
                 command: Subcommands::Show {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "show"]).unwrap()
@@ -232,6 +245,7 @@ mod tests {
             Args {
                 command: Subcommands::Show {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "s"]).unwrap()
@@ -244,6 +258,7 @@ mod tests {
             Args {
                 command: Subcommands::Prompt {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "prompt"]).unwrap()
@@ -256,6 +271,7 @@ mod tests {
             Args {
                 command: Subcommands::Prompt {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "p"]).unwrap()
@@ -268,6 +284,7 @@ mod tests {
             Args {
                 command: Subcommands::Aliases {},
                 debug: false,
+                json: false,
                 logging: false,
             },
             Args::try_parse_from(["test", "aliases"]).unwrap()
@@ -280,6 +297,7 @@ mod tests {
             Args {
                 command: Subcommands::List {},
                 debug: false,
+                json: false,
                 logging: true,
             },
             Args::try_parse_from(["test", "-l", "list"]).unwrap()
@@ -292,6 +310,7 @@ mod tests {
             Args {
                 command: Subcommands::List {},
                 debug: false,
+                json: false,
                 logging: true,
             },
             Args::try_parse_from(["test", "--logging", "list"]).unwrap()
@@ -302,5 +321,31 @@ mod tests {
     fn test_debug_flag_present() {
         let args = Args::try_parse_from(["test", "-d", "list"]).unwrap();
         assert!(args.debug);
+    }
+
+    #[test]
+    fn test_json_flag() {
+        assert_eq!(
+            Args {
+                command: Subcommands::List {},
+                debug: false,
+                json: true,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "--json", "list"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_json_short_flag() {
+        assert_eq!(
+            Args {
+                command: Subcommands::List {},
+                debug: false,
+                json: true,
+                logging: false,
+            },
+            Args::try_parse_from(["test", "-j", "list"]).unwrap()
+        );
     }
 }
