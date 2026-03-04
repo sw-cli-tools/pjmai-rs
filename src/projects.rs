@@ -14,6 +14,9 @@ pub struct ProjectsRegistry {
     pub current_project: ProjectName,
     /// The known projects
     pub project: Vec<ChangeToProject>,
+    /// Stack of previous projects for push/pop navigation
+    #[serde(default)]
+    pub stack: Vec<ProjectName>,
 }
 
 /// A project

@@ -1,7 +1,7 @@
 use crate::error::{PjmError, Result};
 use crate::output::{
     self, AliasOutput, AliasesOutput, ChangeOutput, ErrorOutput, ListOutput, ProjectOutput,
-    PromptOutput, SetupAction, SetupOutput, ShowOutput, SuccessOutput,
+    PromptOutput, PushPopOutput, SetupAction, SetupOutput, ShowOutput, SuccessOutput,
 };
 use crate::projects;
 use crate::util;
@@ -88,9 +88,19 @@ pub fn aliases(json: bool) {
                 description: "Rename a project".to_string(),
             },
             AliasOutput {
+                alias: "popj".to_string(),
+                command: "pjmai pop".to_string(),
+                description: "Pop from project stack".to_string(),
+            },
+            AliasOutput {
                 alias: "prpj".to_string(),
                 command: "pjmai prompt".to_string(),
                 description: "Get current project name for prompt".to_string(),
+            },
+            AliasOutput {
+                alias: "pspj".to_string(),
+                command: "pjmai push".to_string(),
+                description: "Push current and switch to project".to_string(),
             },
             AliasOutput {
                 alias: "rmpj".to_string(),
@@ -115,7 +125,9 @@ pub fn aliases(json: bool) {
         println!("hlpj                      # alias for pjmai aliases");
         println!("lspj                      # alias for pjmai list");
         println!("mvpj <old> <new>          # alias for pjmai rename");
+        println!("popj                      # alias for pjmai pop");
         println!("prpj                      # alias for pjmai prompt");
+        println!("pspj <name>               # alias for pjmai push");
         println!("rmpj <name>               # alias for pjmai remove");
         println!("scpj [dir]                # alias for pjmai scan");
         println!("shpj                      # alias for pjmai show");
@@ -352,11 +364,230 @@ pub fn prompt(json: bool) -> Result<()> {
             current_project: registry.current_project.clone(),
         });
     } else if !registry.current_project.is_empty() {
-        println!("{}", registry.current_project);
+        // Include stack depth if > 0
+        if registry.stack.is_empty() {
+            println!("{}", registry.current_project);
+        } else {
+            println!("{}:{}", registry.current_project, registry.stack.len());
+        }
     }
 
     info!("prompt done");
     Ok(())
+}
+
+/// Push current project to stack and switch to specified project
+pub fn push(project_name: &str, json: bool) -> Result<()> {
+    info!("push to project {}", project_name);
+    let mut registry = util::projects()?;
+
+    // Find matching project using fuzzy matching
+    let matched = find_matching_project(project_name, &registry);
+
+    match matched {
+        MatchResult::Exact(project) | MatchResult::Unique(project) => {
+            let proj_name = project.name.clone();
+            let file_path = util::expand_file_path(&project.action.file_or_dir);
+
+            if util::is_file_found(&file_path) {
+                // Push current project to stack (if we have one)
+                if !registry.current_project.is_empty() {
+                    registry.stack.push(registry.current_project.clone());
+                }
+
+                // Switch to new project
+                registry.current_project = proj_name.clone();
+                util::save_config_toml(&registry.ser()?)?;
+
+                let is_dir = util::is_file_dir(&file_path);
+                let action = if is_dir { "cd" } else { "source" };
+                let path_type = if is_dir { "directory" } else { "file" };
+
+                if json {
+                    output::print_json(&PushPopOutput {
+                        name: proj_name,
+                        path: file_path.clone(),
+                        path_type: path_type.to_string(),
+                        action: action.to_string(),
+                        stack_depth: registry.stack.len(),
+                    });
+                } else {
+                    print!("{}", &file_path);
+                }
+
+                if is_dir {
+                    info!("push done 2");
+                    std::process::exit(2); // cd
+                } else {
+                    info!("push done 3");
+                    std::process::exit(3); // source
+                }
+            } else {
+                if json {
+                    output::print_json(&ErrorOutput {
+                        code: "TARGET_NOT_FOUND".to_string(),
+                        message: format!("Project target '{}' not found", &file_path),
+                        similar_projects: None,
+                        hint: Some("The project exists but its target path is missing".to_string()),
+                    });
+                } else {
+                    println!("dir or file '{}' not found", &file_path);
+                }
+                std::process::exit(4);
+            }
+        }
+        MatchResult::Ambiguous(matches) => {
+            if json {
+                output::print_json(&ErrorOutput {
+                    code: "AMBIGUOUS_PROJECT".to_string(),
+                    message: format!("Ambiguous project name '{}'", project_name),
+                    similar_projects: Some(matches.clone()),
+                    hint: Some("Specify a more unique project name".to_string()),
+                });
+            } else {
+                println!(
+                    "ambiguous project name '{}', matches: {}",
+                    project_name,
+                    matches.join(", ")
+                );
+            }
+            std::process::exit(4);
+        }
+        MatchResult::None => {
+            let similar: Vec<String> = registry
+                .project
+                .iter()
+                .map(|p| p.name.clone())
+                .collect();
+
+            if json {
+                output::print_json(&ErrorOutput {
+                    code: "PROJECT_NOT_FOUND".to_string(),
+                    message: format!("Project '{}' not found", project_name),
+                    similar_projects: if similar.is_empty() {
+                        None
+                    } else {
+                        Some(similar)
+                    },
+                    hint: Some("Use 'pjmai list' to see all projects".to_string()),
+                });
+            } else {
+                println!("project '{}' not found", project_name);
+            }
+            std::process::exit(4);
+        }
+    }
+}
+
+/// Pop from project stack and switch to the popped project
+pub fn pop(json: bool) -> Result<()> {
+    info!("pop from stack");
+    let mut registry = util::projects()?;
+
+    // Check if stack is empty
+    if registry.stack.is_empty() {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "STACK_EMPTY".to_string(),
+                message: "Project stack is empty".to_string(),
+                similar_projects: None,
+                hint: Some("Use 'pspj <project>' to push projects to the stack first".to_string()),
+            });
+        } else {
+            eprintln!(
+                "{}: Stack is empty, staying in '{}'",
+                "warning".yellow().bold(),
+                registry.current_project
+            );
+        }
+        return Ok(());
+    }
+
+    // Pop from stack
+    let popped_project = registry.stack.pop().unwrap();
+
+    // Find the popped project
+    let project = registry
+        .project
+        .iter()
+        .find(|p| p.name == popped_project);
+
+    match project {
+        Some(project) => {
+            let proj_name = project.name.clone();
+            let file_path = util::expand_file_path(&project.action.file_or_dir);
+
+            if util::is_file_found(&file_path) {
+                registry.current_project = proj_name.clone();
+                util::save_config_toml(&registry.ser()?)?;
+
+                let is_dir = util::is_file_dir(&file_path);
+                let action = if is_dir { "cd" } else { "source" };
+                let path_type = if is_dir { "directory" } else { "file" };
+
+                if json {
+                    output::print_json(&PushPopOutput {
+                        name: proj_name,
+                        path: file_path.clone(),
+                        path_type: path_type.to_string(),
+                        action: action.to_string(),
+                        stack_depth: registry.stack.len(),
+                    });
+                } else {
+                    print!("{}", &file_path);
+                }
+
+                if is_dir {
+                    info!("pop done 2");
+                    std::process::exit(2); // cd
+                } else {
+                    info!("pop done 3");
+                    std::process::exit(3); // source
+                }
+            } else {
+                // Save the modified stack even though we can't switch
+                util::save_config_toml(&registry.ser()?)?;
+
+                if json {
+                    output::print_json(&ErrorOutput {
+                        code: "TARGET_NOT_FOUND".to_string(),
+                        message: format!("Project target '{}' not found", &file_path),
+                        similar_projects: None,
+                        hint: Some("The project was popped but its target path is missing".to_string()),
+                    });
+                } else {
+                    eprintln!(
+                        "{}: Project '{}' target '{}' not found",
+                        "error".red().bold(),
+                        popped_project,
+                        file_path
+                    );
+                }
+                std::process::exit(4);
+            }
+        }
+        None => {
+            // Project was removed from registry but was still on stack
+            // Save the modified stack and try to pop again
+            util::save_config_toml(&registry.ser()?)?;
+
+            if json {
+                output::print_json(&ErrorOutput {
+                    code: "PROJECT_NOT_FOUND".to_string(),
+                    message: format!("Stacked project '{}' no longer exists", popped_project),
+                    similar_projects: None,
+                    hint: Some("The project was removed. Try 'popj' again.".to_string()),
+                });
+            } else {
+                eprintln!(
+                    "{}: Project '{}' was removed. Stack cleared of this entry.",
+                    "warning".yellow().bold(),
+                    popped_project
+                );
+            }
+            Ok(())
+        }
+    }
 }
 
 /// Rename a project's nickname
@@ -500,6 +731,7 @@ pub fn show(json: bool) -> Result<()> {
                     name: project.name.clone(),
                     path: expanded.clone(),
                     path_type: output::path_type(&project.action.file_or_dir),
+                    stack: registry.stack.clone(),
                 });
             } else {
                 println!(
@@ -511,6 +743,15 @@ pub fn show(json: bool) -> Result<()> {
                     )
                     .green()
                 );
+
+                // Display stack if non-empty
+                if !registry.stack.is_empty() {
+                    println!(
+                        "{}",
+                        format!(" Stack ({}): {}", registry.stack.len(), registry.stack.join(" <- "))
+                            .cyan()
+                    );
+                }
             }
             info!("show done");
             return Ok(());

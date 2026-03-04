@@ -81,9 +81,21 @@ pub enum Subcommands {
     #[command(name = "list", alias = "l")]
     List {},
 
+    /// Pop from project stack and switch to the popped project; alias popj
+    #[command(name = "pop")]
+    Pop {},
+
     /// Prompt string for previously changed-to project; alias prpj
     #[command(name = "prompt", alias = "p")]
     Prompt {},
+
+    /// Push current project to stack and switch to specified project; alias pspj
+    #[command(name = "push")]
+    Push {
+        /// Project to switch to (current project is pushed to stack)
+        #[arg(long, short)]
+        project: ProjectName,
+    },
 
     /// Removes a previously created project from the projects configuration; alias rmpj
     #[command(name = "remove", alias = "r")]

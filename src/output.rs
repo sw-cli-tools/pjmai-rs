@@ -38,6 +38,25 @@ pub struct ShowOutput {
     /// Whether this is a directory or file
     #[serde(rename = "type")]
     pub path_type: String,
+    /// Stack of projects (for pop navigation)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stack: Vec<String>,
+}
+
+/// JSON output for push/pop operations
+#[derive(Debug, Serialize)]
+pub struct PushPopOutput {
+    /// Project name switched to
+    pub name: String,
+    /// Project path
+    pub path: String,
+    /// Whether this is a directory or file
+    #[serde(rename = "type")]
+    pub path_type: String,
+    /// Action for shell (cd or source)
+    pub action: String,
+    /// Current stack depth after operation
+    pub stack_depth: usize,
 }
 
 /// JSON output for the prompt command

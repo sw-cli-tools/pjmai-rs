@@ -25,7 +25,9 @@ chpj() { pjm_fn change -p "$@"; }
 hlpj() { pjm_fn aliases "$@"; }
 lspj() { pjm_fn list "$@"; }
 mvpj() { pjm_fn rename -f "$1" -t "$2"; }
+popj() { pjm_fn pop "$@"; }
 prpj() { pjm_fn prompt "$@"; }
+pspj() { pjm_fn push -p "$@"; }
 rmpj() { pjm_fn remove --project "$@"; }
 scpj() { pjm_fn scan "$@"; }
 shpj() { pjm_fn show "$@"; }
@@ -44,7 +46,7 @@ if [ -n "$ZSH_VERSION" ]; then
         projects=(${(f)"$(pjmai complete projects "${words[CURRENT]}" 2>/dev/null)"})
         _describe 'project' projects
     }
-    compdef _pjm_complete chpj rmpj
+    compdef _pjm_complete chpj rmpj pspj
 elif [ -n "$BASH_VERSION" ]; then
     # Bash completion with prefix filtering
     _pjm_complete() {
@@ -52,5 +54,5 @@ elif [ -n "$BASH_VERSION" ]; then
         # Pass prefix directly to pjmai for fast filtering
         COMPREPLY=($(pjmai complete projects "$cur" 2>/dev/null))
     }
-    complete -F _pjm_complete chpj rmpj
+    complete -F _pjm_complete chpj rmpj pspj
 fi

@@ -31,7 +31,9 @@ fn run() -> Result<()> {
         args::Subcommands::Complete { target } => command::complete(target)?,
         args::Subcommands::Completions { .. } => unreachable!(), // handled above
         args::Subcommands::List {} => command::list(json)?,
+        args::Subcommands::Pop {} => command::pop(json)?,
         args::Subcommands::Prompt {} => command::prompt(json)?,
+        args::Subcommands::Push { project } => command::push(project, json)?,
         args::Subcommands::Remove { project } => command::remove(project, json)?,
         args::Subcommands::Rename { from, to } => command::rename(from, to, json)?,
         args::Subcommands::Scan {
