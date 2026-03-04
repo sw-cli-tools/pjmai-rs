@@ -33,6 +33,13 @@ fn run() -> Result<()> {
         args::Subcommands::List {} => command::list(json)?,
         args::Subcommands::Prompt {} => command::prompt(json)?,
         args::Subcommands::Remove { project } => command::remove(project, json)?,
+        args::Subcommands::Scan {
+            dir,
+            depth,
+            ignore,
+            dry_run,
+            add_all,
+        } => command::scan(dir, *depth, ignore.clone(), *dry_run, *add_all, json)?,
         args::Subcommands::Setup {
             shell,
             shell_only,

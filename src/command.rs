@@ -9,9 +9,10 @@ use clap::CommandFactory;
 use clap_complete::Shell;
 use colored::Colorize;
 use log::info;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Add a project
 pub fn add(project_name: &str, file_name: &str, json: bool) -> Result<()> {
@@ -92,6 +93,11 @@ pub fn aliases(json: bool) {
                 description: "Remove a project".to_string(),
             },
             AliasOutput {
+                alias: "scpj".to_string(),
+                command: "pjmai scan".to_string(),
+                description: "Scan for git repositories".to_string(),
+            },
+            AliasOutput {
                 alias: "shpj".to_string(),
                 command: "pjmai show".to_string(),
                 description: "Show current project".to_string(),
@@ -105,6 +111,7 @@ pub fn aliases(json: bool) {
         println!("lspj                      # alias for pjmai list");
         println!("prpj                      # alias for pjmai prompt");
         println!("rmpj <name>               # alias for pjmai remove");
+        println!("scpj [dir]                # alias for pjmai scan");
         println!("shpj                      # alias for pjmai show");
     }
 
@@ -822,4 +829,474 @@ fn install_completions(shell: Shell) -> std::result::Result<String, String> {
     }
 
     Ok(completions_path)
+}
+
+// ============================================================
+// Scan command implementation
+// ============================================================
+
+/// Information about a discovered git repository
+#[derive(Debug)]
+struct DiscoveredRepo {
+    /// Full path to the repository
+    path: PathBuf,
+    /// Suggested nickname (from repo name or dir name)
+    suggested_name: String,
+    /// Git remote origin URL (if any)
+    remote_url: Option<String>,
+    /// Parsed owner/organization from remote
+    owner: Option<String>,
+    /// Parsed repository name from remote
+    repo_name: Option<String>,
+    /// Host (e.g., "github.com")
+    host: Option<String>,
+}
+
+/// Scan directories for git repositories
+pub fn scan(
+    start_dir: &str,
+    max_depth: usize,
+    ignore_dirs: Option<Vec<String>>,
+    dry_run: bool,
+    add_all: bool,
+    json: bool,
+) -> Result<()> {
+    info!("scanning {} with depth {}", start_dir, max_depth);
+
+    let expanded_dir = util::expand_file_path(start_dir);
+    let start_path = PathBuf::from(&expanded_dir);
+
+    if !start_path.exists() {
+        return Err(PjmError::PathNotFound(expanded_dir));
+    }
+
+    // Load existing projects to check for duplicates
+    let existing_registry = util::projects().unwrap_or_else(|_| projects::ProjectsRegistry::new());
+    let existing_paths: HashSet<String> = existing_registry
+        .project
+        .iter()
+        .map(|p| util::expand_file_path(&p.action.file_or_dir))
+        .collect();
+
+    // Build ignore set
+    let mut ignore_set: HashSet<String> = HashSet::new();
+    // Default ignores
+    for dir in &["node_modules", "target", "vendor", ".git", "dist", "build", "__pycache__", ".venv", "venv"] {
+        ignore_set.insert(dir.to_string());
+    }
+    // User-specified ignores
+    if let Some(ignores) = ignore_dirs {
+        for dir in ignores {
+            ignore_set.insert(dir);
+        }
+    }
+
+    // Discover repositories
+    eprintln!("{}", format!("Scanning {}...", start_dir).cyan());
+    let repos = discover_repos(&start_path, max_depth, &ignore_set, &existing_paths);
+
+    if repos.is_empty() {
+        eprintln!("{}", "No new git repositories found.".yellow());
+        return Ok(());
+    }
+
+    // Generate unique nicknames
+    let repos_with_nicknames = generate_unique_nicknames(repos, &existing_registry);
+
+    // Group by owner/host for display
+    display_discovered_repos(&repos_with_nicknames);
+
+    if dry_run {
+        eprintln!("\n{}", "[DRY RUN] No projects were added.".yellow());
+        return Ok(());
+    }
+
+    // Confirm and add
+    let should_add = if add_all {
+        true
+    } else {
+        prompt_add_all(repos_with_nicknames.len())
+    };
+
+    if should_add {
+        add_discovered_repos(&repos_with_nicknames, json)?;
+        eprintln!(
+            "\n{}",
+            format!("Added {} project(s).", repos_with_nicknames.len())
+                .green()
+                .bold()
+        );
+    } else {
+        eprintln!("{}", "No projects added.".yellow());
+    }
+
+    Ok(())
+}
+
+/// Recursively discover git repositories
+fn discover_repos(
+    dir: &Path,
+    max_depth: usize,
+    ignore_set: &HashSet<String>,
+    existing_paths: &HashSet<String>,
+) -> Vec<DiscoveredRepo> {
+    let mut repos = Vec::new();
+    discover_repos_recursive(dir, max_depth, 0, ignore_set, existing_paths, &mut repos);
+    repos
+}
+
+fn discover_repos_recursive(
+    dir: &Path,
+    max_depth: usize,
+    current_depth: usize,
+    ignore_set: &HashSet<String>,
+    existing_paths: &HashSet<String>,
+    repos: &mut Vec<DiscoveredRepo>,
+) {
+    if current_depth > max_depth {
+        return;
+    }
+
+    // Check if this directory is a git repo
+    let git_dir = dir.join(".git");
+    if git_dir.exists() {
+        let path_str = dir.to_string_lossy().to_string();
+
+        // Skip if already registered
+        if existing_paths.contains(&path_str) {
+            info!("skipping already registered: {}", path_str);
+            return; // Don't recurse into registered repos
+        }
+
+        // Parse git remote
+        if let Some(repo) = parse_git_repo(dir) {
+            repos.push(repo);
+        }
+        return; // Don't recurse into git repos
+    }
+
+    // Read directory entries
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    // Load .gitignore patterns for this directory
+    let gitignore_patterns = load_gitignore(dir);
+
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let dir_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        // Skip hidden directories (except we already handled .git above)
+        if dir_name.starts_with('.') {
+            continue;
+        }
+
+        // Skip if in ignore set
+        if ignore_set.contains(dir_name) {
+            continue;
+        }
+
+        // Skip if matches gitignore pattern
+        if matches_gitignore(dir_name, &gitignore_patterns) {
+            continue;
+        }
+
+        // Recurse
+        discover_repos_recursive(
+            &path,
+            max_depth,
+            current_depth + 1,
+            ignore_set,
+            existing_paths,
+            repos,
+        );
+    }
+}
+
+/// Load .gitignore patterns from a directory
+fn load_gitignore(dir: &Path) -> Vec<String> {
+    let gitignore_path = dir.join(".gitignore");
+    if !gitignore_path.exists() {
+        return Vec::new();
+    }
+
+    match fs::read_to_string(&gitignore_path) {
+        Ok(content) => content
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.starts_with('#'))
+            .map(|line| line.trim().trim_end_matches('/').to_string())
+            .collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Check if a directory name matches any gitignore pattern
+fn matches_gitignore(dir_name: &str, patterns: &[String]) -> bool {
+    for pattern in patterns {
+        // Simple matching: exact match or glob-style
+        if pattern == dir_name {
+            return true;
+        }
+        // Handle simple wildcards like *.log -> skip, we're matching dirs
+        // Handle patterns like build/ or dist
+        let pattern_clean = pattern.trim_start_matches('/');
+        if pattern_clean == dir_name {
+            return true;
+        }
+    }
+    false
+}
+
+/// Parse a git repository to extract remote info
+fn parse_git_repo(dir: &Path) -> Option<DiscoveredRepo> {
+    let path = dir.to_path_buf();
+    let dir_name = dir.file_name()?.to_str()?.to_string();
+
+    // Try to read git config for remote origin
+    let git_config_path = dir.join(".git/config");
+    let remote_url = if git_config_path.exists() {
+        parse_git_config_origin(&git_config_path)
+    } else {
+        None
+    };
+
+    // Parse the remote URL
+    let (host, owner, repo_name) = if let Some(ref url) = remote_url {
+        parse_remote_url(url)
+    } else {
+        (None, None, None)
+    };
+
+    // Suggested name: prefer repo name from remote, fall back to dir name
+    let suggested_name = repo_name.clone().unwrap_or_else(|| dir_name.clone());
+
+    Some(DiscoveredRepo {
+        path,
+        suggested_name,
+        remote_url,
+        owner,
+        repo_name: repo_name.or(Some(dir_name)),
+        host,
+    })
+}
+
+/// Parse git config file to extract origin URL
+fn parse_git_config_origin(config_path: &Path) -> Option<String> {
+    let content = fs::read_to_string(config_path).ok()?;
+
+    let mut in_origin_section = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "[remote \"origin\"]" {
+            in_origin_section = true;
+            continue;
+        }
+        if trimmed.starts_with('[') {
+            in_origin_section = false;
+            continue;
+        }
+        if in_origin_section && trimmed.starts_with("url = ") {
+            return Some(trimmed.trim_start_matches("url = ").to_string());
+        }
+    }
+    None
+}
+
+/// Parse a git remote URL to extract host, owner, and repo name
+/// Handles:
+///   git@github.com:owner/repo.git
+///   git@github.com-work:owner/repo.git  (SSH alias)
+///   https://github.com/owner/repo.git
+///   ssh://git@github.com/owner/repo.git
+fn parse_remote_url(url: &str) -> (Option<String>, Option<String>, Option<String>) {
+    // SSH format: git@host:owner/repo.git
+    if url.starts_with("git@") {
+        let rest = url.trim_start_matches("git@");
+        if let Some((host_part, path_part)) = rest.split_once(':') {
+            // Normalize host (handle aliases like github.com-work)
+            let host = normalize_host(host_part);
+            let path = path_part.trim_end_matches(".git");
+            if let Some((owner, repo)) = path.split_once('/') {
+                return (Some(host), Some(owner.to_string()), Some(repo.to_string()));
+            }
+        }
+    }
+
+    // HTTPS format: https://host/owner/repo.git
+    if url.starts_with("https://") || url.starts_with("http://") {
+        let rest = url
+            .trim_start_matches("https://")
+            .trim_start_matches("http://");
+        let parts: Vec<&str> = rest.split('/').collect();
+        if parts.len() >= 3 {
+            let host = normalize_host(parts[0]);
+            let owner = parts[1].to_string();
+            let repo = parts[2].trim_end_matches(".git").to_string();
+            return (Some(host), Some(owner), Some(repo));
+        }
+    }
+
+    // SSH URL format: ssh://git@host/owner/repo.git
+    if url.starts_with("ssh://") {
+        let rest = url.trim_start_matches("ssh://");
+        let rest = rest.trim_start_matches("git@");
+        let parts: Vec<&str> = rest.split('/').collect();
+        if parts.len() >= 3 {
+            let host = normalize_host(parts[0]);
+            let owner = parts[1].to_string();
+            let repo = parts[2].trim_end_matches(".git").to_string();
+            return (Some(host), Some(owner), Some(repo));
+        }
+    }
+
+    (None, None, None)
+}
+
+/// Normalize host name (handles SSH aliases like github.com-work)
+fn normalize_host(host: &str) -> String {
+    // TODO: Read host_aliases from config.toml
+    // For now, strip common suffixes like -work, -personal
+    if let Some(base) = host.split('-').next()
+        && base.contains('.')
+    {
+        return base.to_string();
+    }
+    host.to_string()
+}
+
+/// Generate unique nicknames for discovered repos, handling collisions
+fn generate_unique_nicknames(
+    repos: Vec<DiscoveredRepo>,
+    existing_registry: &projects::ProjectsRegistry,
+) -> Vec<DiscoveredRepo> {
+    let mut used_names: HashSet<String> = existing_registry
+        .project
+        .iter()
+        .map(|p| p.name.clone())
+        .collect();
+
+    let mut result = Vec::new();
+
+    for mut repo in repos {
+        let base_name = repo.suggested_name.clone();
+        let mut final_name = base_name.clone();
+        let mut counter = 2;
+
+        while used_names.contains(&final_name) {
+            final_name = format!("{}{}", base_name, counter);
+            counter += 1;
+        }
+
+        used_names.insert(final_name.clone());
+        repo.suggested_name = final_name;
+        result.push(repo);
+    }
+
+    result
+}
+
+/// Display discovered repositories grouped by host/owner
+fn display_discovered_repos(repos: &[DiscoveredRepo]) {
+    // Group by host/owner
+    let mut groups: HashMap<String, Vec<&DiscoveredRepo>> = HashMap::new();
+
+    for repo in repos {
+        let key = match (&repo.host, &repo.owner) {
+            (Some(host), Some(owner)) => format!("{}/{}", host, owner),
+            (Some(host), None) => host.clone(),
+            _ => "(no remote)".to_string(),
+        };
+        groups.entry(key).or_default().push(repo);
+    }
+
+    eprintln!(
+        "\n{}",
+        format!("Found {} git repositories:", repos.len())
+            .green()
+            .bold()
+    );
+
+    // Sort groups for consistent output
+    let mut group_keys: Vec<_> = groups.keys().collect();
+    group_keys.sort();
+
+    for key in group_keys {
+        let group_repos = &groups[key];
+        eprintln!("  {}", key.cyan());
+
+        for repo in group_repos {
+            let path_display = util::shorten_path(&repo.path.to_string_lossy());
+            let name_display = if repo.suggested_name
+                != repo.repo_name.as_ref().unwrap_or(&String::new()).as_str()
+            {
+                // Name was modified (collision)
+                format!("{} (renamed)", repo.suggested_name).yellow()
+            } else {
+                repo.suggested_name.clone().green()
+            };
+            // Show remote URL for repos without parsed host (helps debugging)
+            let remote_hint = if repo.host.is_none() {
+                repo.remote_url
+                    .as_ref()
+                    .map(|u| format!(" [{}]", u.dimmed()))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            eprintln!(
+                "    {:12} {}{}",
+                name_display,
+                path_display.dimmed(),
+                remote_hint
+            );
+        }
+    }
+}
+
+/// Prompt user to add all discovered repos
+fn prompt_add_all(count: usize) -> bool {
+    use std::io::{stderr, stdin, Write};
+
+    eprint!("\nAdd all {} project(s)? [Y/n] ", count);
+    stderr().flush().expect("flush stderr");
+
+    let mut input = String::new();
+    stdin().read_line(&mut input).expect("read stdin");
+    matches!(input.trim().to_lowercase().as_str(), "y" | "yes" | "")
+}
+
+/// Add discovered repos to the project registry
+fn add_discovered_repos(repos: &[DiscoveredRepo], json: bool) -> Result<()> {
+    let mut registry = util::projects()?;
+
+    for repo in repos {
+        let path_str = repo.path.to_string_lossy().to_string();
+        registry.project.push(projects::ChangeToProject {
+            action: projects::Action {
+                file_or_dir: path_str.clone(),
+            },
+            name: repo.suggested_name.clone(),
+        });
+
+        if !json {
+            eprintln!(
+                "  {} {} -> {}",
+                "+".green(),
+                repo.suggested_name.green(),
+                util::shorten_path(&path_str)
+            );
+        }
+    }
+
+    util::save_config_toml(&registry.ser()?)?;
+    Ok(())
 }

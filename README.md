@@ -151,6 +151,7 @@ prpj
 | `pjmai complete projects [prefix]` | - | Fast project name completion for shells |
 | `pjmai complete commands [prefix]` | - | Fast command name completion for shells |
 | `pjmai completions <shell>` | - | Generate shell completions |
+| `pjmai scan [dir]` | `scpj` | Scan for git repositories and add as projects |
 | `pjmai setup [shell]` | - | Auto-configure shell integration |
 
 ### Global Flags
@@ -160,6 +161,35 @@ prpj
 | `--json` | `-j` | Output in JSON format for machine parsing |
 | `--logging` | `-l` | Enable logging (requires `RUST_LOG=info`) |
 | `--debug` | `-d` | Print debug info (config paths, projects) before command |
+
+## Scanning for Projects
+
+Automatically discover git repositories and add them as projects:
+
+```bash
+# Scan home directory (default depth: 3)
+scpj
+
+# Scan a specific directory
+scpj ~/code --depth 4
+
+# Preview what would be found without adding
+scpj ~/github --dry-run
+
+# Skip specific directories
+scpj ~/code --ignore vendor,dist,tmp
+
+# Add all without confirmation
+scpj ~/projects --add-all
+```
+
+The scan command:
+- Finds directories containing `.git`
+- Parses git remote origin to extract owner/organization
+- Groups repositories by host/owner for display
+- Suggests nicknames based on repo name (handles collisions)
+- Honors `.gitignore` patterns when recursing
+- Skips already-registered projects (by path)
 
 ## JSON Output Mode
 

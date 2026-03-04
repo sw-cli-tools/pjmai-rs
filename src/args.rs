@@ -112,6 +112,30 @@ pub enum Subcommands {
         #[arg(long, conflicts_with = "shell_only")]
         completions_only: bool,
     },
+
+    /// Scan directories for git repositories and add them as projects; alias scpj
+    #[command(name = "scan")]
+    Scan {
+        /// Starting directory to scan (default: ~/)
+        #[arg(default_value = "~")]
+        dir: String,
+
+        /// Maximum depth to recurse (default: 3)
+        #[arg(long, default_value = "3")]
+        depth: usize,
+
+        /// Comma-separated directory names to skip (in addition to .gitignore)
+        #[arg(long, value_delimiter = ',')]
+        ignore: Option<Vec<String>>,
+
+        /// Show what would be found without adding anything
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Add all found projects without confirmation
+        #[arg(long)]
+        add_all: bool,
+    },
 }
 
 /// Completion targets for the `complete` subcommand

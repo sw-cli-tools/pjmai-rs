@@ -26,6 +26,7 @@ hlpj() { pjm_fn aliases "$@"; }
 lspj() { pjm_fn list "$@"; }
 prpj() { pjm_fn prompt "$@"; }
 rmpj() { pjm_fn remove --project "$@"; }
+scpj() { pjm_fn scan "$@"; }
 shpj() { pjm_fn show "$@"; }
 
 # Helper to get project names for completion (uses fast native completion)

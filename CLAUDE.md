@@ -121,6 +121,19 @@ pjmai --json show          # Show current project as JSON
 pjmai --json change -p x   # Change outputs JSON (with error details if not found)
 ```
 
+## Scanning for Projects
+
+Discover git repositories and add them as projects:
+
+```bash
+pjmai scan ~/code              # Scan with default depth (3)
+pjmai scan ~/github --depth 4  # Deeper scan
+pjmai scan ~/code --dry-run    # Preview without adding
+pjmai scan --ignore tmp,cache  # Skip directories
+```
+
+Parses git remote origin URLs (including SSH aliases like `github.com-work`) to group by host/owner.
+
 ## Fast Tab Completion
 
 The `complete` subcommand provides fast, native completion for shells:
