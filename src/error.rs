@@ -27,6 +27,10 @@ pub enum PjmError {
     ConfigSerialize(String),
     /// File or directory not found when changing to project
     TargetNotFound(String),
+    /// Invalid format specified
+    InvalidFormat(String),
+    /// Generic I/O error with context
+    IoError(String),
 }
 
 impl fmt::Display for PjmError {
@@ -58,6 +62,12 @@ impl fmt::Display for PjmError {
             }
             PjmError::TargetNotFound(path) => {
                 write!(f, "project target '{}' not found", path)
+            }
+            PjmError::InvalidFormat(msg) => {
+                write!(f, "invalid format: {}", msg)
+            }
+            PjmError::IoError(msg) => {
+                write!(f, "{}", msg)
             }
         }
     }

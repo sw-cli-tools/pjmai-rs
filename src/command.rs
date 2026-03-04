@@ -1,7 +1,8 @@
 use crate::error::{PjmError, Result};
 use crate::output::{
-    self, AliasOutput, AliasesOutput, ChangeOutput, ErrorOutput, ListOutput, ProjectOutput,
-    PromptOutput, PushPopOutput, SetupAction, SetupOutput, ShowOutput, SuccessOutput,
+    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, ErrorOutput, KeyFile, ListOutput,
+    MetaOutput, NoteEntry, NotesOutput, ProjectOutput, PromptOutput, PushPopOutput, SetupAction,
+    SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
 };
 use crate::projects;
 use crate::util;
@@ -15,7 +16,15 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Add a project
-pub fn add(project_name: &str, file_name: &str, json: bool) -> Result<()> {
+pub fn add(
+    project_name: &str,
+    file_name: &str,
+    description: Option<String>,
+    tags: Option<Vec<String>>,
+    language: Option<String>,
+    group: Option<String>,
+    json: bool,
+) -> Result<()> {
     info!("adding {} -f {}", &project_name, &file_name);
     let mut registry = util::projects()?;
 
@@ -31,12 +40,27 @@ pub fn add(project_name: &str, file_name: &str, json: bool) -> Result<()> {
         return Err(PjmError::PathNotFound(expanded_path));
     }
 
+    // Build metadata if any fields are provided
+    let metadata = if description.is_some() || tags.is_some() || language.is_some() || group.is_some() {
+        Some(projects::ProjectMetadata {
+            description,
+            tags: tags.unwrap_or_default(),
+            language,
+            group,
+            last_used: None,
+            notes: Vec::new(),
+        })
+    } else {
+        None
+    };
+
     info!("push");
     registry.project.push(projects::ChangeToProject {
         action: projects::Action {
             file_or_dir: file_name.to_string(),
         },
         name: project_name.to_string(),
+        metadata,
     });
     if registry.project.len() == 1 {
         info!("switch to only project");
@@ -71,6 +95,11 @@ pub fn aliases(json: bool) {
                 alias: "chpj".to_string(),
                 command: "pjmai change".to_string(),
                 description: "Change to a project".to_string(),
+            },
+            AliasOutput {
+                alias: "ctpj".to_string(),
+                command: "pjmai context".to_string(),
+                description: "Show project context for AI agents".to_string(),
             },
             AliasOutput {
                 alias: "hlpj".to_string(),
@@ -127,6 +156,7 @@ pub fn aliases(json: bool) {
     } else {
         println!("adpj <name> -f <dir|file> # alias for pjmai add");
         println!("chpj <name>               # alias for pjmai change");
+        println!("ctpj [name]               # alias for pjmai context");
         println!("hlpj                      # alias for pjmai aliases");
         println!("lspj                      # alias for pjmai list");
         println!("mvpj <old> <new>          # alias for pjmai rename");
@@ -309,22 +339,44 @@ fn find_matching_project<'a>(
 }
 
 /// Lists known projects
-pub fn list(json: bool) -> Result<()> {
+pub fn list(
+    tag_filter: Option<String>,
+    group_filter: Option<String>,
+    sort_recent: bool,
+    json: bool,
+) -> Result<()> {
     info!("listing all projects");
-    let mut registry = util::projects()?;
-    registry.project.sort_by(|a, b| a.name.cmp(&b.name));
+    let registry = util::projects()?;
+
+    // Get filtered and sorted projects
+    let filtered_projects: Vec<&projects::ChangeToProject> = if let Some(ref tag) = tag_filter {
+        registry.projects_with_tag(tag)
+    } else if let Some(ref group) = group_filter {
+        registry.projects_in_group(group)
+    } else if sort_recent {
+        registry.projects_by_recency()
+    } else {
+        let mut sorted: Vec<_> = registry.project.iter().collect();
+        sorted.sort_by(|a, b| a.name.cmp(&b.name));
+        sorted
+    };
 
     if json {
-        let projects: Vec<ProjectOutput> = registry
-            .project
+        let projects: Vec<ProjectOutput> = filtered_projects
             .iter()
             .map(|p| {
                 let expanded = util::expand_file_path(&p.action.file_or_dir);
+                let meta = p.metadata.as_ref();
                 ProjectOutput {
                     name: p.name.clone(),
                     path: expanded.clone(),
                     path_type: output::path_type(&p.action.file_or_dir),
                     is_current: p.name == registry.current_project,
+                    description: meta.and_then(|m| m.description.clone()),
+                    tags: meta.map(|m| m.tags.clone()).unwrap_or_default(),
+                    language: meta.and_then(|m| m.language.clone()),
+                    group: meta.and_then(|m| m.group.clone()),
+                    last_used: meta.and_then(|m| m.last_used.clone()),
                 }
             })
             .collect();
@@ -335,7 +387,16 @@ pub fn list(json: bool) -> Result<()> {
             total,
         });
     } else {
-        for project in &registry.project {
+        // Show filter info
+        if let Some(ref tag) = tag_filter {
+            println!("{}", format!("Projects with tag '{}':", tag).cyan());
+        } else if let Some(ref group) = group_filter {
+            println!("{}", format!("Projects in group '{}':", group).cyan());
+        } else if sort_recent {
+            println!("{}", "Projects by recently used:".cyan());
+        }
+
+        for project in &filtered_projects {
             let short_path = util::shorten_path(&project.action.file_or_dir);
             let colored_name = if project.name == registry.current_project {
                 project.name.italic().green()
@@ -352,7 +413,30 @@ pub fn list(json: bool) -> Result<()> {
             } else {
                 " ".to_string().normal()
             };
-            println!("{}{:8} {}", current, colored_name, colored_short_path);
+
+            // Build tags/group suffix
+            let meta = project.metadata.as_ref();
+            let tags_str = meta
+                .map(|m| {
+                    if m.tags.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" [{}]", m.tags.join(", ")).dimmed().to_string()
+                    }
+                })
+                .unwrap_or_default();
+
+            println!(
+                "{}{:8} {}{}",
+                current, colored_name, colored_short_path, tags_str
+            );
+        }
+
+        // Only show "no matching" when a filter was applied
+        if filtered_projects.is_empty()
+            && (tag_filter.is_some() || group_filter.is_some() || sort_recent)
+        {
+            println!("{}", "(no matching projects)".dimmed());
         }
     }
 
@@ -675,32 +759,26 @@ pub fn rename(from: &str, to: &str, json: bool) -> Result<()> {
 /// Remove the specified project
 pub fn remove(unwanted_project_name: &str, json: bool) -> Result<()> {
     info!("remove {}", &unwanted_project_name);
-    let old_registry = util::projects()?;
-    let mut new_registry = projects::ProjectsRegistry::new();
-    let mut found = false;
+    let mut registry = util::projects()?;
+    let initial_len = registry.project.len();
 
-    for project in &old_registry.project {
-        if project.name != unwanted_project_name {
-            info!("keeping {}", &project.name);
-            new_registry.project.push(projects::ChangeToProject {
-                action: projects::Action {
-                    file_or_dir: project.action.file_or_dir.to_string(),
-                },
-                name: project.name.to_string(),
-            });
-        } else {
-            info!("discarding {}", &project.name);
-            found = true;
-        }
-    }
+    // Remove the project (preserves all fields including metadata for remaining projects)
+    registry
+        .project
+        .retain(|p| p.name != unwanted_project_name);
+
+    let found = registry.project.len() < initial_len;
 
     if found {
-        // Preserve current_project unless we just removed it
-        if old_registry.current_project != unwanted_project_name {
-            new_registry.current_project = old_registry.current_project.clone();
+        // Clear current_project if we just removed it
+        if registry.current_project == unwanted_project_name {
+            registry.current_project = String::new();
         }
+        // Also clean up stack
+        registry.stack.retain(|n| n != unwanted_project_name);
+
         info!("saving changes");
-        util::save_config_toml(&new_registry.ser()?)?;
+        util::save_config_toml(&registry.ser()?)?;
 
         if json {
             output::print_json(&SuccessOutput {
@@ -799,6 +877,12 @@ pub fn complete(target: &crate::args::CompleteTarget) -> Result<()> {
         CompleteTarget::Commands { prefix } => {
             complete_commands(prefix.as_deref());
         }
+        CompleteTarget::Tags { prefix } => {
+            complete_tags(prefix.as_deref());
+        }
+        CompleteTarget::Groups { prefix } => {
+            complete_groups(prefix.as_deref());
+        }
     }
 
     Ok(())
@@ -837,11 +921,19 @@ fn complete_commands(prefix: Option<&str>) {
         "change",
         "complete",
         "completions",
+        "context",
         "list",
+        "meta",
+        "note",
+        "pop",
         "prompt",
+        "push",
         "remove",
+        "rename",
+        "scan",
         "setup",
         "show",
+        "tag",
     ];
 
     let prefix_lower = prefix.map(|s| s.to_lowercase());
@@ -853,6 +945,48 @@ fn complete_commands(prefix: Option<&str>) {
         };
         if matches {
             println!("{}", cmd);
+        }
+    }
+}
+
+/// Output tag names matching a prefix (one per line)
+fn complete_tags(prefix: Option<&str>) {
+    info!("complete tags prefix={:?}", prefix);
+
+    let Ok(registry) = util::projects() else {
+        return;
+    };
+
+    let prefix_lower = prefix.map(|s| s.to_lowercase());
+
+    for tag in registry.all_tags() {
+        let matches = match &prefix_lower {
+            Some(p) => tag.to_lowercase().starts_with(p),
+            None => true,
+        };
+        if matches {
+            println!("{}", tag);
+        }
+    }
+}
+
+/// Output group names matching a prefix (one per line)
+fn complete_groups(prefix: Option<&str>) {
+    info!("complete groups prefix={:?}", prefix);
+
+    let Ok(registry) = util::projects() else {
+        return;
+    };
+
+    let prefix_lower = prefix.map(|s| s.to_lowercase());
+
+    for group in registry.all_groups() {
+        let matches = match &prefix_lower {
+            Some(p) => group.to_lowercase().starts_with(p),
+            None => true,
+        };
+        if matches {
+            println!("{}", group);
         }
     }
 }
@@ -1257,6 +1391,524 @@ PS1='$(_pjm_prompt)\w \$ '
         .map_err(|e| format!("Failed to write to {}: {}", rc_path_str, e))?;
 
     Ok((rc_path_str, false))
+}
+
+// ============================================================
+// Context command implementation
+// ============================================================
+
+/// Output project context for AI agents
+pub fn context(project_name: Option<String>, for_agent: bool, json: bool) -> Result<()> {
+    info!("context for {:?}", project_name);
+    let registry = util::projects()?;
+
+    // Use current project if none specified
+    let target_name = project_name.unwrap_or_else(|| registry.current_project.clone());
+
+    if target_name.is_empty() {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "NO_CURRENT_PROJECT".to_string(),
+                message: "No project specified and no current project set".to_string(),
+                similar_projects: None,
+                hint: Some("Use 'pjmai context -p <project>' or set a current project".to_string()),
+            });
+        } else {
+            eprintln!("{}: No project specified", "error".red().bold());
+        }
+        return Ok(());
+    }
+
+    // Find the project
+    let project = registry.find_project(&target_name);
+
+    match project {
+        Some(proj) => {
+            let expanded_path = util::expand_file_path(&proj.action.file_or_dir);
+            let meta = proj.metadata.as_ref();
+
+            // Detect key files in the project directory
+            let key_files = if util::is_file_dir(&expanded_path) {
+                detect_key_files(&expanded_path)
+            } else {
+                Vec::new()
+            };
+
+            if json || for_agent {
+                output::print_json(&ContextOutput {
+                    name: proj.name.clone(),
+                    path: expanded_path.clone(),
+                    path_type: output::path_type(&proj.action.file_or_dir),
+                    description: meta.and_then(|m| m.description.clone()),
+                    tags: meta.map(|m| m.tags.clone()).unwrap_or_default(),
+                    language: meta.and_then(|m| m.language.clone()),
+                    group: meta.and_then(|m| m.group.clone()),
+                    notes: meta.map(|m| m.notes.clone()).unwrap_or_default(),
+                    key_files,
+                });
+            } else {
+                // Human-readable context output
+                println!("{}: {}", "Project".cyan().bold(), proj.name.green().bold());
+                println!("{}: {}", "Path".cyan(), expanded_path);
+                println!(
+                    "{}: {}",
+                    "Type".cyan(),
+                    output::path_type(&proj.action.file_or_dir)
+                );
+
+                if let Some(meta) = meta {
+                    if let Some(ref desc) = meta.description {
+                        println!("{}: {}", "Description".cyan(), desc);
+                    }
+                    if let Some(ref lang) = meta.language {
+                        println!("{}: {}", "Language".cyan(), lang);
+                    }
+                    if let Some(ref group) = meta.group {
+                        println!("{}: {}", "Group".cyan(), group);
+                    }
+                    if !meta.tags.is_empty() {
+                        println!("{}: {}", "Tags".cyan(), meta.tags.join(", "));
+                    }
+                    if !meta.notes.is_empty() {
+                        println!("{}:", "Notes".cyan());
+                        for note in &meta.notes {
+                            println!("  - {}", note);
+                        }
+                    }
+                }
+
+                if !key_files.is_empty() {
+                    println!("{}:", "Key Files".cyan());
+                    for kf in key_files {
+                        println!("  {}: {}", kf.name.green(), kf.purpose);
+                    }
+                }
+            }
+        }
+        None => {
+            if json {
+                output::print_json(&ErrorOutput {
+                    code: "PROJECT_NOT_FOUND".to_string(),
+                    message: format!("Project '{}' not found", target_name),
+                    similar_projects: None,
+                    hint: Some("Use 'pjmai list' to see all projects".to_string()),
+                });
+            } else {
+                eprintln!(
+                    "{}: Project '{}' not found",
+                    "error".red().bold(),
+                    target_name
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Detect key files in a project directory
+fn detect_key_files(dir: &str) -> Vec<KeyFile> {
+    let path = Path::new(dir);
+    let mut key_files = Vec::new();
+
+    let checks: &[(&str, &str)] = &[
+        ("README.md", "Project documentation"),
+        ("README", "Project documentation"),
+        ("CLAUDE.md", "AI assistant instructions"),
+        ("Cargo.toml", "Rust package manifest"),
+        ("package.json", "Node.js package manifest"),
+        ("pyproject.toml", "Python project configuration"),
+        ("setup.py", "Python setup script"),
+        ("Makefile", "Build automation"),
+        ("Dockerfile", "Container configuration"),
+        ("docker-compose.yml", "Multi-container Docker"),
+        (".env.example", "Environment template"),
+        ("CONTRIBUTING.md", "Contribution guidelines"),
+        ("LICENSE", "License file"),
+        ("Justfile", "Command runner"),
+    ];
+
+    for (filename, purpose) in checks {
+        if path.join(filename).exists() {
+            key_files.push(KeyFile {
+                name: filename.to_string(),
+                purpose: purpose.to_string(),
+            });
+        }
+    }
+
+    key_files
+}
+
+// ============================================================
+// Note command implementation
+// ============================================================
+
+/// Manage project notes
+pub fn note(
+    project_name: &str,
+    action: &crate::args::NoteAction,
+    json: bool,
+) -> Result<()> {
+    use crate::args::NoteAction;
+    info!("note for {} action={:?}", project_name, action);
+
+    let mut registry = util::projects()?;
+
+    // Find the project
+    let project_idx = registry
+        .project
+        .iter()
+        .position(|p| p.name == project_name);
+
+    let Some(idx) = project_idx else {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "PROJECT_NOT_FOUND".to_string(),
+                message: format!("Project '{}' not found", project_name),
+                similar_projects: None,
+                hint: Some("Use 'pjmai list' to see all projects".to_string()),
+            });
+        } else {
+            eprintln!(
+                "{}: Project '{}' not found",
+                "error".red().bold(),
+                project_name
+            );
+        }
+        return Ok(());
+    };
+
+    match action {
+        NoteAction::Add { text } => {
+            // Ensure metadata exists
+            if registry.project[idx].metadata.is_none() {
+                registry.project[idx].metadata = Some(projects::ProjectMetadata::default());
+            }
+            registry.project[idx]
+                .metadata
+                .as_mut()
+                .unwrap()
+                .notes
+                .push(text.clone());
+            util::save_config_toml(&registry.ser()?)?;
+
+            if json {
+                output::print_json(&SuccessOutput {
+                    success: true,
+                    operation: "note_add".to_string(),
+                    project: project_name.to_string(),
+                });
+            } else {
+                println!("{} Added note to '{}'", "+".green(), project_name);
+            }
+        }
+        NoteAction::List {} => {
+            let notes = registry.project[idx]
+                .metadata
+                .as_ref()
+                .map(|m| m.notes.clone())
+                .unwrap_or_default();
+
+            if json {
+                let entries: Vec<NoteEntry> = notes
+                    .iter()
+                    .enumerate()
+                    .map(|(i, text)| NoteEntry {
+                        index: i + 1,
+                        text: text.clone(),
+                    })
+                    .collect();
+                output::print_json(&NotesOutput {
+                    project: project_name.to_string(),
+                    notes: entries,
+                });
+            } else if notes.is_empty() {
+                println!("{}", "(no notes)".dimmed());
+            } else {
+                println!("{}:", format!("Notes for '{}'", project_name).cyan());
+                for (i, note) in notes.iter().enumerate() {
+                    println!("  {}. {}", i + 1, note);
+                }
+            }
+        }
+        NoteAction::Remove { index } => {
+            let notes = registry.project[idx]
+                .metadata
+                .as_mut()
+                .map(|m| &mut m.notes);
+
+            if let Some(notes) = notes {
+                if *index == 0 || *index > notes.len() {
+                    if json {
+                        output::print_json(&ErrorOutput {
+                            code: "INVALID_INDEX".to_string(),
+                            message: format!("Invalid note index: {}", index),
+                            similar_projects: None,
+                            hint: Some("Use 'pjmai note -p <project> list' to see note indices".to_string()),
+                        });
+                    } else {
+                        eprintln!("{}: Invalid note index {}", "error".red().bold(), index);
+                    }
+                    return Ok(());
+                }
+                notes.remove(*index - 1);
+                util::save_config_toml(&registry.ser()?)?;
+
+                if json {
+                    output::print_json(&SuccessOutput {
+                        success: true,
+                        operation: "note_remove".to_string(),
+                        project: project_name.to_string(),
+                    });
+                } else {
+                    println!("{} Removed note {} from '{}'", "-".red(), index, project_name);
+                }
+            }
+        }
+        NoteAction::Clear {} => {
+            if let Some(meta) = registry.project[idx].metadata.as_mut() {
+                meta.notes.clear();
+            }
+            util::save_config_toml(&registry.ser()?)?;
+
+            if json {
+                output::print_json(&SuccessOutput {
+                    success: true,
+                    operation: "note_clear".to_string(),
+                    project: project_name.to_string(),
+                });
+            } else {
+                println!("{} Cleared all notes from '{}'", "✓".green(), project_name);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// ============================================================
+// Tag command implementation
+// ============================================================
+
+/// Manage project tags
+pub fn tag(
+    project_name: &str,
+    action: &crate::args::TagAction,
+    json: bool,
+) -> Result<()> {
+    use crate::args::TagAction;
+    info!("tag for {} action={:?}", project_name, action);
+
+    let mut registry = util::projects()?;
+
+    // Find the project
+    let project_idx = registry
+        .project
+        .iter()
+        .position(|p| p.name == project_name);
+
+    let Some(idx) = project_idx else {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "PROJECT_NOT_FOUND".to_string(),
+                message: format!("Project '{}' not found", project_name),
+                similar_projects: None,
+                hint: Some("Use 'pjmai list' to see all projects".to_string()),
+            });
+        } else {
+            eprintln!(
+                "{}: Project '{}' not found",
+                "error".red().bold(),
+                project_name
+            );
+        }
+        return Ok(());
+    };
+
+    match action {
+        TagAction::Add { tags } => {
+            // Ensure metadata exists
+            if registry.project[idx].metadata.is_none() {
+                registry.project[idx].metadata = Some(projects::ProjectMetadata::default());
+            }
+            let meta = registry.project[idx].metadata.as_mut().unwrap();
+            for tag in tags {
+                if !meta.tags.contains(tag) {
+                    meta.tags.push(tag.clone());
+                }
+            }
+            meta.tags.sort();
+            util::save_config_toml(&registry.ser()?)?;
+
+            if json {
+                output::print_json(&SuccessOutput {
+                    success: true,
+                    operation: "tag_add".to_string(),
+                    project: project_name.to_string(),
+                });
+            } else {
+                println!(
+                    "{} Added tags to '{}': {}",
+                    "+".green(),
+                    project_name,
+                    tags.join(", ")
+                );
+            }
+        }
+        TagAction::List {} => {
+            let tags = registry.project[idx]
+                .metadata
+                .as_ref()
+                .map(|m| m.tags.clone())
+                .unwrap_or_default();
+
+            if json {
+                output::print_json(&TagsOutput {
+                    project: project_name.to_string(),
+                    tags,
+                });
+            } else if tags.is_empty() {
+                println!("{}", "(no tags)".dimmed());
+            } else {
+                println!("{}: {}", project_name.green(), tags.join(", "));
+            }
+        }
+        TagAction::Remove { tags } => {
+            if let Some(meta) = registry.project[idx].metadata.as_mut() {
+                meta.tags.retain(|t| !tags.contains(t));
+            }
+            util::save_config_toml(&registry.ser()?)?;
+
+            if json {
+                output::print_json(&SuccessOutput {
+                    success: true,
+                    operation: "tag_remove".to_string(),
+                    project: project_name.to_string(),
+                });
+            } else {
+                println!(
+                    "{} Removed tags from '{}': {}",
+                    "-".red(),
+                    project_name,
+                    tags.join(", ")
+                );
+            }
+        }
+        TagAction::Clear {} => {
+            if let Some(meta) = registry.project[idx].metadata.as_mut() {
+                meta.tags.clear();
+            }
+            util::save_config_toml(&registry.ser()?)?;
+
+            if json {
+                output::print_json(&SuccessOutput {
+                    success: true,
+                    operation: "tag_clear".to_string(),
+                    project: project_name.to_string(),
+                });
+            } else {
+                println!("{} Cleared all tags from '{}'", "✓".green(), project_name);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// ============================================================
+// Meta command implementation
+// ============================================================
+
+/// Update project metadata
+pub fn meta(
+    project_name: &str,
+    description: Option<String>,
+    language: Option<String>,
+    group: Option<String>,
+    json: bool,
+) -> Result<()> {
+    info!("meta for {}", project_name);
+
+    let mut registry = util::projects()?;
+
+    // Find the project
+    let project_idx = registry
+        .project
+        .iter()
+        .position(|p| p.name == project_name);
+
+    let Some(idx) = project_idx else {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "PROJECT_NOT_FOUND".to_string(),
+                message: format!("Project '{}' not found", project_name),
+                similar_projects: None,
+                hint: Some("Use 'pjmai list' to see all projects".to_string()),
+            });
+        } else {
+            eprintln!(
+                "{}: Project '{}' not found",
+                "error".red().bold(),
+                project_name
+            );
+        }
+        return Ok(());
+    };
+
+    // Ensure metadata exists
+    if registry.project[idx].metadata.is_none() {
+        registry.project[idx].metadata = Some(projects::ProjectMetadata::default());
+    }
+
+    let meta = registry.project[idx].metadata.as_mut().unwrap();
+    let mut updated_fields = Vec::new();
+
+    if let Some(desc) = description {
+        meta.description = Some(desc);
+        updated_fields.push("description".to_string());
+    }
+    if let Some(lang) = language {
+        meta.language = Some(lang);
+        updated_fields.push("language".to_string());
+    }
+    if let Some(grp) = group {
+        meta.group = Some(grp);
+        updated_fields.push("group".to_string());
+    }
+
+    if updated_fields.is_empty() {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "NO_FIELDS".to_string(),
+                message: "No fields to update".to_string(),
+                similar_projects: None,
+                hint: Some("Specify --description, --language, or --group".to_string()),
+            });
+        } else {
+            eprintln!("{}: No fields to update", "warning".yellow().bold());
+        }
+        return Ok(());
+    }
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&MetaOutput {
+            success: true,
+            project: project_name.to_string(),
+            updated: updated_fields,
+        });
+    } else {
+        println!(
+            "{} Updated '{}': {}",
+            "✓".green(),
+            project_name,
+            updated_fields.join(", ")
+        );
+    }
+
+    Ok(())
 }
 
 // ============================================================
@@ -1713,6 +2365,7 @@ fn add_discovered_repos(repos: &[DiscoveredRepo], json: bool) -> Result<()> {
                 file_or_dir: path_str.clone(),
             },
             name: repo.suggested_name.clone(),
+            metadata: None, // Metadata can be added later with `pjmai meta`
         });
 
         if !json {
@@ -1726,5 +2379,177 @@ fn add_discovered_repos(repos: &[DiscoveredRepo], json: bool) -> Result<()> {
     }
 
     util::save_config_toml(&registry.ser()?)?;
+    Ok(())
+}
+
+/// Export configuration
+pub fn config_export(format: &str, json: bool) -> Result<()> {
+    info!("config export format={}", format);
+    let registry = util::projects()?;
+
+    match format.to_lowercase().as_str() {
+        "toml" => {
+            // For TOML format, just output the raw config file
+            let toml_str = registry.ser()?;
+            println!("{}", toml_str);
+        }
+        "json" => {
+            // For JSON format, output structured JSON
+            let projects: Vec<output::ProjectOutput> = registry
+                .project
+                .iter()
+                .map(|p| {
+                    let expanded = util::expand_file_path(&p.action.file_or_dir);
+                    let meta = p.metadata.as_ref();
+                    output::ProjectOutput {
+                        name: p.name.clone(),
+                        path: expanded.clone(),
+                        path_type: output::path_type(&p.action.file_or_dir),
+                        is_current: p.name == registry.current_project,
+                        description: meta.and_then(|m| m.description.clone()),
+                        tags: meta.map(|m| m.tags.clone()).unwrap_or_default(),
+                        language: meta.and_then(|m| m.language.clone()),
+                        group: meta.and_then(|m| m.group.clone()),
+                        last_used: meta.and_then(|m| m.last_used.clone()),
+                    }
+                })
+                .collect();
+
+            let export = output::ConfigExportOutput {
+                version: registry.version.clone(),
+                current_project: registry.current_project.clone(),
+                projects,
+                stack: registry.stack.clone(),
+            };
+            output::print_json(&export);
+        }
+        _ => {
+            return Err(PjmError::InvalidFormat(format!(
+                "Unknown format '{}'. Supported formats: toml, json",
+                format
+            )));
+        }
+    }
+
+    if json && format != "json" {
+        // If --json flag is set but format isn't json, output success message
+        output::print_json(&output::SuccessOutput {
+            success: true,
+            operation: "export".to_string(),
+            project: format!("config (format: {})", format),
+        });
+    }
+
+    Ok(())
+}
+
+/// Import configuration from a file
+pub fn config_import(file: &str, merge: bool, dry_run: bool, json: bool) -> Result<()> {
+    info!("config import file={} merge={} dry_run={}", file, merge, dry_run);
+
+    // Read and parse the import file
+    let expanded_path = util::expand_file_path(file);
+    if !util::is_file_found(&expanded_path) {
+        return Err(PjmError::PathNotFound(expanded_path));
+    }
+
+    let contents = fs::read_to_string(&expanded_path)
+        .map_err(|e| PjmError::IoError(format!("Failed to read {}: {}", file, e)))?;
+
+    // Determine format from extension or content
+    let import_registry: projects::ProjectsRegistry = if file.ends_with(".json") {
+        serde_json::from_str(&contents)
+            .map_err(|e| PjmError::ConfigParse(format!("Failed to parse JSON: {}", e)))?
+    } else {
+        // Assume TOML
+        projects::ProjectsRegistry::deser(contents)?
+    };
+
+    let mut registry = util::projects()?;
+    let existing_names: HashSet<String> = registry.project.iter().map(|p| p.name.clone()).collect();
+
+    let mut added: Vec<String> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
+    let mut updated: Vec<String> = Vec::new();
+
+    for import_project in &import_registry.project {
+        if existing_names.contains(&import_project.name) {
+            if merge {
+                // In merge mode, update existing project's metadata
+                if let Some(existing) = registry.find_project_mut(&import_project.name) {
+                    // Only update metadata if import has metadata
+                    if import_project.metadata.is_some() {
+                        existing.metadata = import_project.metadata.clone();
+                        updated.push(import_project.name.clone());
+                    } else {
+                        skipped.push(import_project.name.clone());
+                    }
+                }
+            } else {
+                // Without merge, skip existing projects
+                skipped.push(import_project.name.clone());
+            }
+        } else {
+            // New project, add it
+            added.push(import_project.name.clone());
+            if !dry_run {
+                registry.project.push(import_project.clone());
+            }
+        }
+    }
+
+    // Save if not dry run and we made changes
+    if !dry_run && (!added.is_empty() || !updated.is_empty()) {
+        util::save_config_toml(&registry.ser()?)?;
+    }
+
+    if json {
+        output::print_json(&output::ConfigImportOutput {
+            success: true,
+            added: added.len(),
+            skipped: skipped.len(),
+            updated: updated.len(),
+            added_projects: added,
+            skipped_projects: skipped,
+            updated_projects: updated,
+        });
+    } else {
+        let action_word = if dry_run { "Would import" } else { "Imported" };
+        println!(
+            "{} {} project(s)",
+            action_word,
+            (added.len() + updated.len()).to_string().green()
+        );
+
+        if !added.is_empty() {
+            println!("{}", "Added:".cyan());
+            for name in &added {
+                println!("  {} {}", "+".green(), name);
+            }
+        }
+
+        if !updated.is_empty() {
+            println!("{}", "Updated:".cyan());
+            for name in &updated {
+                println!("  {} {}", "~".yellow(), name);
+            }
+        }
+
+        if !skipped.is_empty() {
+            println!(
+                "{} {} project(s) already exist",
+                "Skipped:".dimmed(),
+                skipped.len()
+            );
+            for name in &skipped {
+                println!("  {} {}", "-".dimmed(), name.dimmed());
+            }
+        }
+
+        if dry_run {
+            println!("\n{}", "(dry run - no changes made)".dimmed());
+        }
+    }
+
     Ok(())
 }

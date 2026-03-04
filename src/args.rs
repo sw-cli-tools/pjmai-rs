@@ -51,6 +51,22 @@ pub enum Subcommands {
         /// File name to be sourced for project (e.g., to set environment variables)
         #[arg(long, short)]
         file_or_dir: ProjectPath,
+
+        /// Description of the project
+        #[arg(long, short = 'D')]
+        description: Option<String>,
+
+        /// Comma-separated tags (e.g., "rust,cli,work")
+        #[arg(long, short, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+
+        /// Primary programming language
+        #[arg(long, short = 'L')]
+        language: Option<String>,
+
+        /// Project group (e.g., "work", "personal", "oss")
+        #[arg(long, short = 'g')]
+        group: Option<String>,
     },
 
     /// Changes to the specified project (changes directory or sources file); alias chpj
@@ -79,7 +95,75 @@ pub enum Subcommands {
 
     /// Lists the previously added projects; alias lspj
     #[command(name = "list", alias = "l")]
-    List {},
+    List {
+        /// Filter by tag
+        #[arg(long, short)]
+        tag: Option<String>,
+
+        /// Filter by group
+        #[arg(long, short)]
+        group: Option<String>,
+
+        /// Sort by recently used
+        #[arg(long, short)]
+        recent: bool,
+    },
+
+    /// Output project context for AI agents; alias ctpj
+    #[command(name = "context")]
+    Context {
+        /// Project to show context for (defaults to current)
+        #[arg(long, short)]
+        project: Option<ProjectName>,
+
+        /// Output format optimized for AI agent system prompts
+        #[arg(long)]
+        for_agent: bool,
+    },
+
+    /// Manage project notes
+    #[command(name = "note")]
+    Note {
+        /// Project name
+        #[arg(long, short)]
+        project: ProjectName,
+
+        /// Note operation
+        #[command(subcommand)]
+        action: NoteAction,
+    },
+
+    /// Manage project tags
+    #[command(name = "tag")]
+    Tag {
+        /// Project name
+        #[arg(long, short)]
+        project: ProjectName,
+
+        /// Tag operation
+        #[command(subcommand)]
+        action: TagAction,
+    },
+
+    /// Update project metadata
+    #[command(name = "meta")]
+    Meta {
+        /// Project name
+        #[arg(long, short)]
+        project: ProjectName,
+
+        /// Set description
+        #[arg(long, short = 'D')]
+        description: Option<String>,
+
+        /// Set primary language
+        #[arg(long, short = 'L')]
+        language: Option<String>,
+
+        /// Set group
+        #[arg(long, short = 'g')]
+        group: Option<String>,
+    },
 
     /// Pop from project stack and switch to the popped project; alias popj
     #[command(name = "pop")]
@@ -141,6 +225,14 @@ pub enum Subcommands {
         prompt: bool,
     },
 
+    /// Manage configuration (export, import)
+    #[command(name = "config")]
+    Config {
+        /// Config operation
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
     /// Scan directories for git repositories and add them as projects; alias scpj
     #[command(name = "scan")]
     Scan {
@@ -182,6 +274,101 @@ pub enum CompleteTarget {
         /// Optional prefix to filter commands
         prefix: Option<String>,
     },
+
+    /// Complete tag names
+    #[command(name = "tags")]
+    Tags {
+        /// Optional prefix to filter tags
+        prefix: Option<String>,
+    },
+
+    /// Complete group names
+    #[command(name = "groups")]
+    Groups {
+        /// Optional prefix to filter groups
+        prefix: Option<String>,
+    },
+}
+
+/// Actions for the `note` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum NoteAction {
+    /// Add a note to the project
+    #[command(name = "add")]
+    Add {
+        /// The note text
+        text: String,
+    },
+
+    /// List all notes for the project
+    #[command(name = "list")]
+    List {},
+
+    /// Remove a note by index (1-based)
+    #[command(name = "remove")]
+    Remove {
+        /// Note index (1-based)
+        index: usize,
+    },
+
+    /// Clear all notes from the project
+    #[command(name = "clear")]
+    Clear {},
+}
+
+/// Actions for the `tag` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum TagAction {
+    /// Add tags to the project
+    #[command(name = "add")]
+    Add {
+        /// Tags to add (comma-separated)
+        #[arg(value_delimiter = ',')]
+        tags: Vec<String>,
+    },
+
+    /// List all tags for the project
+    #[command(name = "list")]
+    List {},
+
+    /// Remove tags from the project
+    #[command(name = "remove")]
+    Remove {
+        /// Tags to remove (comma-separated)
+        #[arg(value_delimiter = ',')]
+        tags: Vec<String>,
+    },
+
+    /// Clear all tags from the project
+    #[command(name = "clear")]
+    Clear {},
+}
+
+/// Actions for the `config` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum ConfigAction {
+    /// Export configuration to stdout
+    #[command(name = "export")]
+    Export {
+        /// Output format (toml or json)
+        #[arg(long, short, default_value = "toml")]
+        format: String,
+    },
+
+    /// Import configuration from a file
+    #[command(name = "import")]
+    Import {
+        /// Path to configuration file to import
+        file: String,
+
+        /// Merge with existing configuration instead of replacing
+        #[arg(long, short)]
+        merge: bool,
+
+        /// Show what would be imported without making changes
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// Generate shell completions to stdout
@@ -209,6 +396,10 @@ mod tests {
                 command: Subcommands::Add {
                     project: "pjmai".to_string(),
                     file_or_dir: "~/gh/wma/pjmai".to_string(),
+                    description: None,
+                    tags: None,
+                    language: None,
+                    group: None,
                 },
                 debug: false,
                 json: false,
@@ -225,6 +416,10 @@ mod tests {
                 command: Subcommands::Add {
                     project: "myproject".to_string(),
                     file_or_dir: "/tmp/project".to_string(),
+                    description: None,
+                    tags: None,
+                    language: None,
+                    group: None,
                 },
                 debug: false,
                 json: false,
@@ -268,7 +463,11 @@ mod tests {
     fn test_list() {
         assert_eq!(
             Args {
-                command: Subcommands::List {},
+                command: Subcommands::List {
+                    tag: None,
+                    group: None,
+                    recent: false,
+                },
                 debug: false,
                 json: false,
                 logging: false,
@@ -281,7 +480,11 @@ mod tests {
     fn test_list_with_alias() {
         assert_eq!(
             Args {
-                command: Subcommands::List {},
+                command: Subcommands::List {
+                    tag: None,
+                    group: None,
+                    recent: false,
+                },
                 debug: false,
                 json: false,
                 logging: false,
@@ -389,7 +592,11 @@ mod tests {
     fn test_logging_flag() {
         assert_eq!(
             Args {
-                command: Subcommands::List {},
+                command: Subcommands::List {
+                    tag: None,
+                    group: None,
+                    recent: false,
+                },
                 debug: false,
                 json: false,
                 logging: true,
@@ -402,7 +609,11 @@ mod tests {
     fn test_long_logging_flag() {
         assert_eq!(
             Args {
-                command: Subcommands::List {},
+                command: Subcommands::List {
+                    tag: None,
+                    group: None,
+                    recent: false,
+                },
                 debug: false,
                 json: false,
                 logging: true,
@@ -421,7 +632,11 @@ mod tests {
     fn test_json_flag() {
         assert_eq!(
             Args {
-                command: Subcommands::List {},
+                command: Subcommands::List {
+                    tag: None,
+                    group: None,
+                    recent: false,
+                },
                 debug: false,
                 json: true,
                 logging: false,
@@ -434,7 +649,11 @@ mod tests {
     fn test_json_short_flag() {
         assert_eq!(
             Args {
-                command: Subcommands::List {},
+                command: Subcommands::List {
+                    tag: None,
+                    group: None,
+                    recent: false,
+                },
                 debug: false,
                 json: true,
                 logging: false,

@@ -15,6 +15,21 @@ pub struct ProjectOutput {
     pub path_type: String,
     /// Whether this is the current project
     pub is_current: bool,
+    /// Project description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Project tags
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// Primary programming language
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Project group
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// Last used timestamp
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_used: Option<String>,
 }
 
 /// JSON output for the list command
@@ -106,6 +121,83 @@ pub struct ErrorOutput {
     pub hint: Option<String>,
 }
 
+/// JSON output for the context command
+#[derive(Debug, Serialize)]
+pub struct ContextOutput {
+    /// Project name
+    pub name: String,
+    /// Project path
+    pub path: String,
+    /// Whether this is a directory or file
+    #[serde(rename = "type")]
+    pub path_type: String,
+    /// Project description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Project tags
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// Primary programming language
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Project group
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// Project notes
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<String>,
+    /// Key files found in project
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub key_files: Vec<KeyFile>,
+}
+
+/// Key file information for context
+#[derive(Debug, Serialize)]
+pub struct KeyFile {
+    /// File name
+    pub name: String,
+    /// Description of the file's purpose
+    pub purpose: String,
+}
+
+/// JSON output for notes list
+#[derive(Debug, Serialize)]
+pub struct NotesOutput {
+    /// Project name
+    pub project: String,
+    /// All notes
+    pub notes: Vec<NoteEntry>,
+}
+
+/// A single note entry
+#[derive(Debug, Serialize)]
+pub struct NoteEntry {
+    /// Note index (1-based)
+    pub index: usize,
+    /// Note text
+    pub text: String,
+}
+
+/// JSON output for tags list
+#[derive(Debug, Serialize)]
+pub struct TagsOutput {
+    /// Project name
+    pub project: String,
+    /// All tags
+    pub tags: Vec<String>,
+}
+
+/// JSON output for metadata update
+#[derive(Debug, Serialize)]
+pub struct MetaOutput {
+    /// Success indicator
+    pub success: bool,
+    /// Project name
+    pub project: String,
+    /// Updated fields
+    pub updated: Vec<String>,
+}
+
 /// JSON output for aliases command
 #[derive(Debug, Serialize)]
 pub struct AliasOutput {
@@ -150,6 +242,42 @@ pub struct SetupAction {
     pub success: bool,
     /// Details or error message
     pub message: String,
+}
+
+/// JSON output for config export command
+#[derive(Debug, Serialize)]
+pub struct ConfigExportOutput {
+    /// Configuration version
+    pub version: String,
+    /// Current project name
+    pub current_project: String,
+    /// All projects
+    pub projects: Vec<ProjectOutput>,
+    /// Project stack
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stack: Vec<String>,
+}
+
+/// JSON output for config import command
+#[derive(Debug, Serialize)]
+pub struct ConfigImportOutput {
+    /// Whether import was successful
+    pub success: bool,
+    /// Number of projects added
+    pub added: usize,
+    /// Number of projects skipped (already exist)
+    pub skipped: usize,
+    /// Number of projects updated (merge mode)
+    pub updated: usize,
+    /// Names of added projects
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub added_projects: Vec<String>,
+    /// Names of skipped projects
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub skipped_projects: Vec<String>,
+    /// Names of updated projects
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub updated_projects: Vec<String>,
 }
 
 /// Determine if a path points to a directory or file

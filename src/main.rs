@@ -25,12 +25,44 @@ fn run() -> Result<()> {
         args::Subcommands::Add {
             project,
             file_or_dir,
-        } => command::add(project, file_or_dir, json)?,
+            description,
+            tags,
+            language,
+            group,
+        } => command::add(
+            project,
+            file_or_dir,
+            description.clone(),
+            tags.clone(),
+            language.clone(),
+            group.clone(),
+            json,
+        )?,
         args::Subcommands::Aliases {} => command::aliases(json),
         args::Subcommands::Change { project } => command::change(project, json)?,
         args::Subcommands::Complete { target } => command::complete(target)?,
         args::Subcommands::Completions { .. } => unreachable!(), // handled above
-        args::Subcommands::List {} => command::list(json)?,
+        args::Subcommands::Config { action } => match action {
+            args::ConfigAction::Export { format } => command::config_export(format, json)?,
+            args::ConfigAction::Import {
+                file,
+                merge,
+                dry_run,
+            } => command::config_import(file, *merge, *dry_run, json)?,
+        },
+        args::Subcommands::Context { project, for_agent } => {
+            command::context(project.clone(), *for_agent, json)?
+        }
+        args::Subcommands::List { tag, group, recent } => {
+            command::list(tag.clone(), group.clone(), *recent, json)?
+        }
+        args::Subcommands::Meta {
+            project,
+            description,
+            language,
+            group,
+        } => command::meta(project, description.clone(), language.clone(), group.clone(), json)?,
+        args::Subcommands::Note { project, action } => command::note(project, action, json)?,
         args::Subcommands::Pop {} => command::pop(json)?,
         args::Subcommands::Prompt {} => command::prompt(json)?,
         args::Subcommands::Push { project } => command::push(project, json)?,
@@ -50,6 +82,7 @@ fn run() -> Result<()> {
             prompt,
         } => command::setup(*shell, *shell_only, *completions_only, *prompt, json)?,
         args::Subcommands::Show {} => command::show(json)?,
+        args::Subcommands::Tag { project, action } => command::tag(project, action, json)?,
     }
     info!(target:"pjmai::main", "finished");
     Ok(())

@@ -644,7 +644,7 @@ Blocked: rm, sudo, curl, wget, ssh
 
 #### B. Nono (Anti-Sudo) Integration
 
-[Nono](https://github.com/example/nono) is a tool that intercepts and blocks sudo/privileged commands.
+[nono-rs](https://docs.rs/crate/nono-rs/latest) is a Rust crate that intercepts and blocks sudo/privileged commands. See also the [nono-rs GitHub repository](https://github.com/your-repo/nono-rs) for usage examples.
 
 ```toml
 [[project]]
@@ -944,53 +944,104 @@ Switch to pjmai? [Y/n]
 
 ## Implementation Priority
 
-### Phase 1: Foundation (v0.2.0)
+### Phase 1: Foundation (v0.2.0) ✅ COMPLETE
 *Focus: Core improvements for immediate usability*
 
-1. **JSON output mode** (`--json` flag)
-2. **Improved error messages** with suggestions
-3. **Install script** (`install.sh`)
-4. **`pjmai setup` command** for shell integration
-5. **Enhanced tab completion** (dynamic project names)
-6. **Implement debug flag**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| JSON output mode (`--json` flag) | ✅ Done | All commands support `--json` |
+| Improved error messages with suggestions | ✅ Done | Includes `similar_projects` in errors |
+| Install script (`install.sh`) | ✅ Done | Supports `--prompt`, `--scan-base` |
+| `pjmai setup` command | ✅ Done | Shell integration + completions + prompt |
+| Enhanced tab completion | ✅ Done | `pjmai complete projects [prefix]` |
+| Implement debug flag | ✅ Done | `-d` shows config paths |
 
-### Phase 2: Metadata (v0.3.0)
+**Bonus features implemented (beyond original roadmap):**
+
+| Feature | Alias | Notes |
+|---------|-------|-------|
+| Scan for git repos | `scpj` | Auto-discover projects with `--dry-run`, `--add-all` |
+| Rename projects | `mvpj` | Change project nicknames |
+| Push/pop stack navigation | `pspj`, `popj` | Temporary project switches with return |
+| Prompt with stack depth | - | Shows `[project:N]` where N is stack size |
+| `.pjmai.sh` env files | `srcpj` | Secure hash-based approval workflow |
+| Uninstall script | - | `./uninstall.sh` with `--keep-config` |
+| VHS demo tapes | - | 6 demos in `demo/` directory |
+
+### Phase 2: Metadata (v0.3.0) ✅ COMPLETE
 *Focus: Richer project information*
 
-1. **Project metadata** (description, tags, language)
-2. **Project groups**
-3. **`pjmai context` command** for AI agents
-4. **Recently-used tracking**
-5. **Configuration export/import**
-6. **Project notes**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Project metadata (description, tags, language) | ✅ Done | `adpj --description --tags --language --group` |
+| Project groups | ✅ Done | Filter with `lspj --group` |
+| `pjmai context` command for AI agents | ✅ Done | `ctpj` alias, `--for-agent` flag |
+| Recently-used tracking | ✅ Done | `last_used` timestamp, `lspj --recent` |
+| Configuration export/import | ✅ Done | `pjmai config export/import` |
+| Project notes | ✅ Done | `pjmai note add/list/remove/clear` |
 
-### Phase 3: Environments (v0.4.0)
+**New commands added:**
+- `pjmai context [-p project] [--for-agent]` - Show project context (alias: `ctpj`)
+- `pjmai tag -p <project> add/list/remove/clear` - Manage project tags
+- `pjmai note -p <project> add/list/remove/clear` - Manage project notes
+- `pjmai meta -p <project> --description/--language/--group` - Update metadata
+- `pjmai list --tag/--group/--recent` - Filter and sort project list
+- `pjmai complete tags/groups [prefix]` - Tab completion for tags/groups
+
+### Phase 3: Environments (v0.4.0) — NOT STARTED
 *Focus: Environment management*
 
-1. **Environment variables per project**
-2. **on_enter/on_exit hooks**
-3. **uv/venv integration**
-4. **nvm integration**
-5. **Direnv compatibility**
-6. **Templates**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Environment variables per project | ⏳ Pending | |
+| on_enter/on_exit hooks | ⏳ Pending | |
+| uv/venv integration | ⏳ Pending | |
+| nvm integration | ⏳ Pending | |
+| Direnv compatibility | ⏳ Pending | |
+| Templates | ⏳ Pending | |
 
-### Phase 4: AI & Sandboxing (v0.5.0)
+### Phase 4: AI & Sandboxing (v0.5.0) — NOT STARTED
 *Focus: AI agent support and security*
 
-1. **AI context injection**
-2. **Restricted PATH mode**
-3. **Nono integration**
-4. **Protected files**
-5. **`--agent` mode flag**
-6. **AI-assisted discovery**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| AI context injection | ⏳ Pending | |
+| Restricted PATH mode | ⏳ Pending | |
+| nono-rs integration | ⏳ Pending | See [nono-rs crate](https://docs.rs/crate/nono-rs/latest) |
+| Protected files | ⏳ Pending | |
+| `--agent` mode flag | ⏳ Pending | |
+| AI-assisted discovery | ⏳ Pending | |
+| **assist integration** | ⏳ Pending | See below |
 
-### Phase 5: Containers (v0.6.0)
+#### Assist Integration (~/github/softwarewrighter/assist)
+
+Integrate with the `assist` project's SQLite database for AI-generated project analysis:
+
+**Commands:**
+- `scpj --analyze` - Run assist on all discovered repos, populate AI metadata
+- `shpj --analyze` - Run assist on current project, show AI summary
+- `lspj --detailed` - Show assist-generated descriptions and status
+- `pjmai context --ai` - Include assist observations in context output
+
+**chpj integration:**
+- On switch, show: "Last worked on: [date] - [assist summary]"
+- Option: `chpj --verbose` to show full AI analysis
+- Detect stale analysis: "Analysis is 30d old, run 'shpj --analyze' to refresh"
+
+**Database sharing:**
+- Read from assist's `~/.assist/assist.db` (observations table)
+- Query by project path to find relevant entries
+- Extract: recent work summaries, detected tech stack, common commands
+
+### Phase 5: Containers (v0.6.0) — NOT STARTED
 *Focus: Advanced isolation*
 
-1. **Docker integration**
-2. **LXC/Lima support**
-3. **Per-project containers**
-4. **Development environments as code**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Docker integration | ⏳ Pending | |
+| LXC/Lima support | ⏳ Pending | |
+| Per-project containers | ⏳ Pending | |
+| Development environments as code | ⏳ Pending | |
 
 ---
 
