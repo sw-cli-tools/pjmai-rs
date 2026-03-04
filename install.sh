@@ -86,10 +86,16 @@ parse_args() {
                 shift
                 ;;
             --prefix)
+                if [[ -z "$2" || "$2" == --* ]]; then
+                    error "--prefix requires a directory argument (e.g., --prefix /usr/local/bin)"
+                fi
                 INSTALL_PREFIX="$2"
                 shift 2
                 ;;
             --local)
+                if [[ -z "$2" || "$2" == --* ]]; then
+                    error "--local requires a directory argument (e.g., --local .)"
+                fi
                 LOCAL_DIR="$2"
                 shift 2
                 ;;
