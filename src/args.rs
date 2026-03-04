@@ -93,6 +93,18 @@ pub enum Subcommands {
         project: ProjectName,
     },
 
+    /// Rename a project's nickname; alias mvpj
+    #[command(name = "rename", alias = "mv")]
+    Rename {
+        /// Current project name
+        #[arg(long, short)]
+        from: ProjectName,
+
+        /// New project name
+        #[arg(long, short)]
+        to: ProjectName,
+    },
+
     /// Shows the previously changed-to project; alias shpj
     #[command(name = "show", alias = "s")]
     Show {},

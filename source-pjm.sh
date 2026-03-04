@@ -24,6 +24,7 @@ adpj() { pjm_fn add -p "$@"; }
 chpj() { pjm_fn change -p "$@"; }
 hlpj() { pjm_fn aliases "$@"; }
 lspj() { pjm_fn list "$@"; }
+mvpj() { pjm_fn rename -f "$1" -t "$2"; }
 prpj() { pjm_fn prompt "$@"; }
 rmpj() { pjm_fn remove --project "$@"; }
 scpj() { pjm_fn scan "$@"; }

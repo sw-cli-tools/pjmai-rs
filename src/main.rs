@@ -33,6 +33,7 @@ fn run() -> Result<()> {
         args::Subcommands::List {} => command::list(json)?,
         args::Subcommands::Prompt {} => command::prompt(json)?,
         args::Subcommands::Remove { project } => command::remove(project, json)?,
+        args::Subcommands::Rename { from, to } => command::rename(from, to, json)?,
         args::Subcommands::Scan {
             dir,
             depth,

@@ -83,6 +83,11 @@ pub fn aliases(json: bool) {
                 description: "List all projects".to_string(),
             },
             AliasOutput {
+                alias: "mvpj".to_string(),
+                command: "pjmai rename".to_string(),
+                description: "Rename a project".to_string(),
+            },
+            AliasOutput {
                 alias: "prpj".to_string(),
                 command: "pjmai prompt".to_string(),
                 description: "Get current project name for prompt".to_string(),
@@ -109,6 +114,7 @@ pub fn aliases(json: bool) {
         println!("chpj <name>               # alias for pjmai change");
         println!("hlpj                      # alias for pjmai aliases");
         println!("lspj                      # alias for pjmai list");
+        println!("mvpj <old> <new>          # alias for pjmai rename");
         println!("prpj                      # alias for pjmai prompt");
         println!("rmpj <name>               # alias for pjmai remove");
         println!("scpj [dir]                # alias for pjmai scan");
@@ -350,6 +356,82 @@ pub fn prompt(json: bool) -> Result<()> {
     }
 
     info!("prompt done");
+    Ok(())
+}
+
+/// Rename a project's nickname
+pub fn rename(from: &str, to: &str, json: bool) -> Result<()> {
+    info!("renaming {} to {}", from, to);
+    let mut registry = util::projects()?;
+
+    // Check if target name already exists
+    if registry.project.iter().any(|p| p.name == to) {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "DUPLICATE_PROJECT".to_string(),
+                message: format!("Project '{}' already exists", to),
+                similar_projects: None,
+                hint: Some("Choose a different name".to_string()),
+            });
+        } else {
+            eprintln!(
+                "{}: Project '{}' already exists",
+                "error".red().bold(),
+                to
+            );
+        }
+        return Ok(());
+    }
+
+    // Find and rename the project
+    let mut found = false;
+    for project in &mut registry.project {
+        if project.name == from {
+            project.name = to.to_string();
+            found = true;
+
+            // Update current_project if it was the renamed one
+            if registry.current_project == from {
+                registry.current_project = to.to_string();
+            }
+            break;
+        }
+    }
+
+    if found {
+        util::save_config_toml(&registry.ser()?)?;
+
+        if json {
+            output::print_json(&SuccessOutput {
+                success: true,
+                operation: "rename".to_string(),
+                project: to.to_string(),
+            });
+        } else {
+            println!(
+                "{} '{}' {} '{}'",
+                "Renamed".green(),
+                from,
+                "->".green(),
+                to.green().bold()
+            );
+        }
+    } else if json {
+        output::print_json(&ErrorOutput {
+            code: "PROJECT_NOT_FOUND".to_string(),
+            message: format!("Project '{}' not found", from),
+            similar_projects: None,
+            hint: Some("Use 'pjmai list' to see all projects".to_string()),
+        });
+    } else {
+        eprintln!(
+            "{}: Project '{}' not found",
+            "error".red().bold(),
+            from
+        );
+    }
+
+    info!("rename done");
     Ok(())
 }
 
