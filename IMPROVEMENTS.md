@@ -1022,15 +1022,27 @@ Switch to pjmai? [Y/n]
 **How on_exit hooks work:**
 When entering a project, any `on_exit` commands are stored in the shell variable `_PJMAI_ON_EXIT`. When switching to another project via `chpj`, the shell wrapper runs these exit commands before setting up the new project. This enables cleanup actions like `deactivate` for virtual environments.
 
-**Deferred to Phase 3.2:**
+### Phase 3.2: Environment Auto-Detection ✅ COMPLETE
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Auto-detect command | ⏳ Pending | `pjmai env auto-detect` for .venv, .nvmrc, .envrc |
-| uv/venv integration | ⏳ Pending | Auto-activate based on pyproject.toml |
-| nvm integration | ⏳ Pending | Auto-run `nvm use` based on .nvmrc |
-| Direnv compatibility | ⏳ Pending | Integration wrapper for .envrc |
+| Auto-detect command | ✅ Done | `pjmai env auto-detect` with `--dry-run` |
+| Python venv detection | ✅ Done | Detects .venv/ or venv/, adds activate/deactivate |
+| nvm integration | ✅ Done | Detects .nvmrc, adds `nvm use` |
+| Node modules | ✅ Done | Detects node_modules/.bin, adds to PATH |
+| Rust/Cargo | ✅ Done | Detects Cargo.toml, adds target/debug to PATH |
+| Direnv detection | ✅ Done | Detects .envrc with security notice |
+
+**New commands added in Phase 3.2:**
+- `pjmai env -p <project> auto-detect` - Scan and configure environment
+- `pjmai env -p <project> auto-detect --dry-run` - Preview without applying
+
+**Deferred to future phases:**
+
+| Feature | Status | Notes |
+|---------|--------|-------|
 | Templates | ⏳ Pending | Reusable environment configurations |
+| Auto-detect on add | ⏳ Pending | Run auto-detect when adding new projects |
 
 ### Phase 4: AI & Sandboxing (v0.5.0) — NOT STARTED
 *Focus: AI agent support and security*

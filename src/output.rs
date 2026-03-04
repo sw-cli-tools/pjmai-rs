@@ -307,6 +307,42 @@ pub struct EnvModifyOutput {
     pub project: String,
 }
 
+/// JSON output for env auto-detect command
+#[derive(Debug, Serialize)]
+pub struct EnvAutoDetectOutput {
+    /// Project name
+    pub project: String,
+    /// Whether changes were applied (false if dry_run)
+    pub applied: bool,
+    /// Detected features
+    pub detected: Vec<DetectedFeature>,
+}
+
+/// A detected environment feature
+#[derive(Debug, Serialize)]
+pub struct DetectedFeature {
+    /// Feature name (e.g., "python-venv", "node-nvm", "direnv")
+    pub feature: String,
+    /// File or directory that triggered detection
+    pub source: String,
+    /// Commands/paths that would be added
+    pub config: DetectedConfig,
+}
+
+/// Configuration that would be applied for a detected feature
+#[derive(Debug, Serialize)]
+pub struct DetectedConfig {
+    /// Paths to prepend to PATH
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub path_prepend: Vec<String>,
+    /// Commands to run on enter
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_enter: Vec<String>,
+    /// Commands to run on exit
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_exit: Vec<String>,
+}
+
 /// Determine if a path points to a directory or file
 pub fn path_type(path: &str) -> String {
     let expanded = util::expand_file_path(path);

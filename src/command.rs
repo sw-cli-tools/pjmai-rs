@@ -1,8 +1,9 @@
 use crate::error::{PjmError, Result};
 use crate::output::{
-    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, EnvModifyOutput, EnvShowOutput,
-    ErrorOutput, KeyFile, ListOutput, MetaOutput, NoteEntry, NotesOutput, ProjectOutput,
-    PromptOutput, PushPopOutput, SetupAction, SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
+    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, DetectedConfig,
+    DetectedFeature, EnvAutoDetectOutput, EnvModifyOutput, EnvShowOutput, ErrorOutput, KeyFile,
+    ListOutput, MetaOutput, NoteEntry, NotesOutput, ProjectOutput, PromptOutput, PushPopOutput,
+    SetupAction, SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
 };
 use crate::projects;
 use crate::util;
@@ -2907,6 +2908,233 @@ pub fn env_clear(project_name: &str, json: bool) -> Result<()> {
         });
     } else {
         println!("Cleared environment config for project {}", project_name);
+    }
+
+    Ok(())
+}
+
+/// Auto-detect environment configuration from project files
+pub fn env_auto_detect(project_name: &str, dry_run: bool, json: bool) -> Result<()> {
+    info!("env auto-detect for {} (dry_run={})", project_name, dry_run);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    // Get the project path
+    let project_path = util::expand_file_path(&project.action.file_or_dir);
+
+    if !util::is_file_dir(&project_path) {
+        if json {
+            output::print_json(&ErrorOutput {
+                code: "NOT_DIRECTORY".to_string(),
+                message: format!(
+                    "Project '{}' points to a file, not a directory",
+                    project_name
+                ),
+                similar_projects: None,
+                hint: Some("Auto-detect only works for directory-based projects".to_string()),
+            });
+        } else {
+            println!(
+                "{}",
+                "Auto-detect only works for directory-based projects".red()
+            );
+        }
+        return Ok(());
+    }
+
+    let project_dir = Path::new(&project_path);
+    let mut detected: Vec<DetectedFeature> = Vec::new();
+
+    // Check for Python virtual environment (.venv or venv directory)
+    let venv_dir = if project_dir.join(".venv").is_dir() {
+        Some(".venv")
+    } else if project_dir.join("venv").is_dir() {
+        Some("venv")
+    } else {
+        None
+    };
+
+    if let Some(venv) = venv_dir {
+        detected.push(DetectedFeature {
+            feature: "python-venv".to_string(),
+            source: format!("{}/", venv),
+            config: DetectedConfig {
+                path_prepend: vec![format!("./{}/bin", venv)],
+                on_enter: vec![format!("source {}/bin/activate", venv)],
+                on_exit: vec!["deactivate".to_string()],
+            },
+        });
+    }
+
+    // Check for pyproject.toml (Python project without existing venv)
+    if venv_dir.is_none() && project_dir.join("pyproject.toml").is_file() {
+        detected.push(DetectedFeature {
+            feature: "python-project".to_string(),
+            source: "pyproject.toml".to_string(),
+            config: DetectedConfig {
+                path_prepend: vec![],
+                on_enter: vec![
+                    "# Python project detected - run: uv venv && source .venv/bin/activate"
+                        .to_string(),
+                ],
+                on_exit: vec![],
+            },
+        });
+    }
+
+    // Check for .nvmrc (Node version manager)
+    if project_dir.join(".nvmrc").is_file() {
+        detected.push(DetectedFeature {
+            feature: "node-nvm".to_string(),
+            source: ".nvmrc".to_string(),
+            config: DetectedConfig {
+                path_prepend: vec![],
+                on_enter: vec!["nvm use".to_string()],
+                on_exit: vec![],
+            },
+        });
+    }
+
+    // Check for node_modules/.bin (Node project)
+    if project_dir.join("node_modules/.bin").is_dir() {
+        detected.push(DetectedFeature {
+            feature: "node-modules".to_string(),
+            source: "node_modules/.bin/".to_string(),
+            config: DetectedConfig {
+                path_prepend: vec!["./node_modules/.bin".to_string()],
+                on_enter: vec![],
+                on_exit: vec![],
+            },
+        });
+    }
+
+    // Check for .envrc (direnv)
+    if project_dir.join(".envrc").is_file() {
+        detected.push(DetectedFeature {
+            feature: "direnv".to_string(),
+            source: ".envrc".to_string(),
+            config: DetectedConfig {
+                path_prepend: vec![],
+                on_enter: vec![
+                    "# .envrc detected - consider using direnv or: source .envrc".to_string(),
+                ],
+                on_exit: vec![],
+            },
+        });
+    }
+
+    // Check for Cargo.toml (Rust project)
+    if project_dir.join("Cargo.toml").is_file() {
+        detected.push(DetectedFeature {
+            feature: "rust-cargo".to_string(),
+            source: "Cargo.toml".to_string(),
+            config: DetectedConfig {
+                path_prepend: vec!["./target/debug".to_string()],
+                on_enter: vec![],
+                on_exit: vec![],
+            },
+        });
+    }
+
+    if detected.is_empty() {
+        if json {
+            output::print_json(&EnvAutoDetectOutput {
+                project: project_name.to_string(),
+                applied: false,
+                detected: vec![],
+            });
+        } else {
+            println!("No environment features detected for project {}", project_name);
+        }
+        return Ok(());
+    }
+
+    // Apply configuration if not dry_run
+    if !dry_run {
+        // Re-get mutable reference
+        let project = registry
+            .find_project_mut(project_name)
+            .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+        // Ensure metadata and environment exist
+        if project.metadata.is_none() {
+            project.metadata = Some(projects::ProjectMetadata::default());
+        }
+        let metadata = project.metadata.as_mut().unwrap();
+        if metadata.environment.is_none() {
+            metadata.environment = Some(projects::EnvironmentConfig::default());
+        }
+        let env = metadata.environment.as_mut().unwrap();
+
+        // Initialize vectors if needed
+        if env.path_prepend.is_none() {
+            env.path_prepend = Some(Vec::new());
+        }
+        if env.on_enter.is_none() {
+            env.on_enter = Some(Vec::new());
+        }
+        if env.on_exit.is_none() {
+            env.on_exit = Some(Vec::new());
+        }
+
+        // Apply detected configurations (avoid duplicates)
+        let path_prepend = env.path_prepend.as_mut().unwrap();
+        let on_enter = env.on_enter.as_mut().unwrap();
+        let on_exit = env.on_exit.as_mut().unwrap();
+
+        for feature in &detected {
+            for p in &feature.config.path_prepend {
+                if !path_prepend.contains(p) {
+                    path_prepend.push(p.clone());
+                }
+            }
+            for cmd in &feature.config.on_enter {
+                // Skip comment-only suggestions if they start with #
+                if !cmd.starts_with('#') && !on_enter.contains(cmd) {
+                    on_enter.push(cmd.clone());
+                }
+            }
+            for cmd in &feature.config.on_exit {
+                if !on_exit.contains(cmd) {
+                    on_exit.push(cmd.clone());
+                }
+            }
+        }
+
+        util::save_config_toml(&registry.ser()?)?;
+    }
+
+    if json {
+        output::print_json(&EnvAutoDetectOutput {
+            project: project_name.to_string(),
+            applied: !dry_run,
+            detected,
+        });
+    } else {
+        println!(
+            "{}",
+            format!("Detected environment features for project {}:", project_name).cyan()
+        );
+        for feature in &detected {
+            println!("  {} (from {})", feature.feature.green(), feature.source);
+            if !feature.config.path_prepend.is_empty() {
+                println!("    Path prepend: {}", feature.config.path_prepend.join(", "));
+            }
+            if !feature.config.on_enter.is_empty() {
+                println!("    On enter: {}", feature.config.on_enter.join("; "));
+            }
+            if !feature.config.on_exit.is_empty() {
+                println!("    On exit: {}", feature.config.on_exit.join("; "));
+            }
+        }
+        if dry_run {
+            println!("\n{}", "(dry run - no changes made)".dimmed());
+        } else {
+            println!("\n{}", "Configuration applied.".green());
+        }
     }
 
     Ok(())

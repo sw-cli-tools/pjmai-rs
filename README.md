@@ -453,6 +453,39 @@ on_enter = ["source .venv/bin/activate"]
 on_exit = ["deactivate"]
 ```
 
+### Auto-Detecting Environment Configuration
+
+Instead of manually configuring each feature, use `auto-detect` to scan your project and configure automatically:
+
+```bash
+# Preview what would be configured (dry run)
+evpj webapp auto-detect --dry-run
+
+# Auto-detect and apply configuration
+evpj webapp auto-detect
+```
+
+Auto-detect recognizes:
+- **Python venv** (`.venv/` or `venv/`): Adds activate/deactivate commands and PATH
+- **Node.js** (`.nvmrc`): Adds `nvm use` command
+- **Node modules** (`node_modules/.bin/`): Adds to PATH
+- **Rust** (`Cargo.toml`): Adds `./target/debug` to PATH
+- **direnv** (`.envrc`): Suggests sourcing (with security notice)
+- **Python project** (`pyproject.toml` without venv): Suggests creating venv
+
+Example output:
+```
+Detected environment features for project webapp:
+  python-venv (from .venv/)
+    Path prepend: ./.venv/bin
+    On enter: source .venv/bin/activate
+    On exit: deactivate
+  node-nvm (from .nvmrc)
+    On enter: nvm use
+
+Configuration applied.
+```
+
 ### Managing Your Project List
 
 ```bash

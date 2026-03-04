@@ -67,6 +67,9 @@ fn run() -> Result<()> {
             }
             args::EnvAction::Show {} => command::env_show(project, json)?,
             args::EnvAction::Clear {} => command::env_clear(project, json)?,
+            args::EnvAction::AutoDetect { dry_run } => {
+                command::env_auto_detect(project, *dry_run, json)?
+            }
         },
         args::Subcommands::Context { project, for_agent } => {
             command::context(project.clone(), *for_agent, json)?

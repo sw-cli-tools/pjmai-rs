@@ -437,6 +437,14 @@ pub enum EnvAction {
     /// Clear all environment config
     #[command(name = "clear")]
     Clear {},
+
+    /// Auto-detect environment configuration from project files
+    #[command(name = "auto-detect")]
+    AutoDetect {
+        /// Show what would be configured without making changes
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// Generate shell completions to stdout

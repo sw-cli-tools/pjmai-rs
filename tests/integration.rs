@@ -1530,3 +1530,232 @@ MY_VAR = "value"
         // Then on_enter commands
         .stdout(predicate::str::contains("echo entering"));
 }
+
+#[test]
+fn test_env_auto_detect_python_venv() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    // Create .venv directory to simulate Python virtual environment
+    fs::create_dir(project_dir.join(".venv")).unwrap();
+    fs::create_dir_all(project_dir.join(".venv/bin")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Run auto-detect with dry_run first
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "auto-detect", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("python-venv"))
+        .stdout(predicate::str::contains(".venv/"))
+        .stdout(predicate::str::contains("dry run"));
+
+    // Run auto-detect without dry_run to apply
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "auto-detect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("python-venv"))
+        .stdout(predicate::str::contains("Configuration applied"));
+
+    // Verify the config was updated
+    let config = read_config(&temp_dir);
+    assert!(config.contains("path_prepend"));
+    assert!(config.contains(".venv/bin"));
+    assert!(config.contains("on_enter"));
+    assert!(config.contains("source .venv/bin/activate"));
+    assert!(config.contains("on_exit"));
+    assert!(config.contains("deactivate"));
+}
+
+#[test]
+fn test_env_auto_detect_nvmrc() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    // Create .nvmrc file
+    fs::write(project_dir.join(".nvmrc"), "18").unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "auto-detect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("node-nvm"))
+        .stdout(predicate::str::contains(".nvmrc"));
+
+    // Verify config
+    let config = read_config(&temp_dir);
+    assert!(config.contains("nvm use"));
+}
+
+#[test]
+fn test_env_auto_detect_node_modules() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    // Create node_modules/.bin directory
+    fs::create_dir_all(project_dir.join("node_modules/.bin")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "auto-detect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("node-modules"))
+        .stdout(predicate::str::contains("node_modules/.bin"));
+
+    // Verify config
+    let config = read_config(&temp_dir);
+    assert!(config.contains("path_prepend"));
+    assert!(config.contains("node_modules/.bin"));
+}
+
+#[test]
+fn test_env_auto_detect_no_features() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "auto-detect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No environment features detected"));
+}
+
+#[test]
+fn test_env_auto_detect_json() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    // Create .venv directory
+    fs::create_dir_all(project_dir.join(".venv/bin")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "env", "-p", "test", "auto-detect", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"project\": \"test\""))
+        .stdout(predicate::str::contains("\"applied\": false"))
+        .stdout(predicate::str::contains("\"feature\": \"python-venv\""))
+        .stdout(predicate::str::contains("\"source\": \".venv/\""));
+}
+
+#[test]
+fn test_env_auto_detect_multiple_features() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    // Create multiple features
+    fs::create_dir_all(project_dir.join(".venv/bin")).unwrap();
+    fs::write(project_dir.join(".nvmrc"), "20").unwrap();
+    fs::create_dir_all(project_dir.join("node_modules/.bin")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "auto-detect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("python-venv"))
+        .stdout(predicate::str::contains("node-nvm"))
+        .stdout(predicate::str::contains("node-modules"));
+
+    // Verify all features are in config
+    let config = read_config(&temp_dir);
+    assert!(config.contains(".venv/bin"));
+    assert!(config.contains("nvm use"));
+    assert!(config.contains("node_modules/.bin"));
+    assert!(config.contains("deactivate"));
+}
