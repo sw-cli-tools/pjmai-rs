@@ -53,6 +53,25 @@ cp target/release/pjmai ~/.local/bin/
 pjmai setup
 ```
 
+### Uninstallation
+
+```bash
+# Preview what would be removed
+./uninstall.sh --dry-run
+
+# Full uninstall (prompts before removing projects)
+./uninstall.sh
+
+# Uninstall but keep your project list for later reinstall
+./uninstall.sh --keep-config
+```
+
+The uninstall script:
+- Removes the binary from `~/.local/bin/`
+- Removes shell completions
+- Cleans PJMAI entries from `~/.zshrc` (creates backup first)
+- Removes `~/.pjmai/` directory (unless `--keep-config`)
+
 ### Shell Integration (Required for Manual Install)
 
 **Option 1: Automatic Setup (Recommended)**
