@@ -144,8 +144,11 @@ prpj
 | `pjmai add -p <name> -f <path>` | `adpj` | Add a new project |
 | `pjmai change -p <name>` | `chpj` | Switch to a project |
 | `pjmai list` | `lspj` | List all projects |
+| `pjmai push -p <name>` | `pspj` | Push current to stack, switch to project |
+| `pjmai pop` | `popj` | Pop from stack, return to previous project |
 | `pjmai remove -p <name>` | `rmpj` | Remove a project |
-| `pjmai show` | `shpj` | Show current project |
+| `pjmai rename -f <old> -t <new>` | `mvpj` | Rename a project |
+| `pjmai show` | `shpj` | Show current project (and stack) |
 | `pjmai prompt` | `prpj` | Output current project name (for prompts) |
 | `pjmai aliases` | `hlpj` | Show all available aliases |
 | `pjmai complete projects [prefix]` | - | Fast project name completion for shells |
@@ -284,20 +287,65 @@ The `change` command supports fuzzy matching:
 - **Substring match**: `app` matches "webapp" (if unique)
 - **Ambiguous**: If multiple projects match, shows all matches
 
-### Shell Prompt Integration
+### Push/Pop Stack Navigation
 
-Add the current project to your shell prompt:
+Use push/pop for temporary project switches when you need to return:
 
 ```bash
-# In your .bashrc or .zshrc
-export PS1='[\$(prpj)] \w $ '
+# Working in webapp, need to check something in api
+pspj api           # Push webapp to stack, switch to api
+
+# Need to check config too
+pspj config        # Push api to stack, switch to config
+
+# Done with config, return to api
+popj               # Pop from stack, back to api
+
+# Done with api, return to webapp
+popj               # Pop from stack, back to webapp
+
+# Stack is empty now
+popj               # Warning: stack empty, staying in webapp
 ```
 
-This displays the current project name in your prompt:
+View the current stack:
+```bash
+shpj
+# Output:
+# >config   ~/code/config
+#  Stack (2): api <- webapp
+```
+
+The stack persists across terminal sessions and is stored in your config.
+
+### Shell Prompt Integration
+
+Add the current project to your shell prompt automatically:
+
+```bash
+pjmai setup --prompt
+```
+
+Or manually add to your `.bashrc` or `.zshrc`:
+
+```bash
+_pjm_prompt() {
+  local proj=$(prpj 2>/dev/null)
+  [[ -n "$proj" ]] && echo "[$proj] "
+}
+PS1='$(_pjm_prompt)\w \$ '
+```
+
+The prompt shows the current project and stack depth:
 
 ```
-[webapp] ~/code/my-webapp $
+[webapp] ~/code $          # Current project, no stack
+[api:1] ~/code $           # In api, 1 item on stack (webapp)
+[config:2] ~/code $        # In config, 2 items on stack
+~/code $                   # No project set
 ```
+
+The number after `:` indicates how many `popj` commands will return you to previous projects.
 
 ### Managing Your Project List
 
@@ -384,6 +432,8 @@ Available demos:
 - `basic-workflow.tape` - Core commands: add, list, show, prompt
 - `project-management.tape` - Adding and removing projects
 - `error-handling.tape` - Error messages for invalid operations
+- `scan-workflow.tape` - Scanning for git repos, renaming, and removing projects
+- `prompt-integration.tape` - Shell prompt with push/pop stack navigation
 
 ## License
 
