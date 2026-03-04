@@ -105,10 +105,11 @@ fn projects_file_contents() -> Result<SerializedRegistry> {
 
 fn prompt_create_yes_no() -> bool {
     info!("create yes/no");
-    use std::io::{Write, stdin, stdout};
+    use std::io::{Write, stderr, stdin};
 
-    print!("create Y/n> ");
-    stdout().flush().expect("flush stdout");
+    // Print to stderr so prompt is visible even when stdout is captured
+    eprint!("Create config file? [Y/n] ");
+    stderr().flush().expect("flush stderr");
     let mut input = String::new();
     stdin().read_line(&mut input).expect("read stdin");
     matches!(input.as_ref(), "Y\n" | "y\n" | "\n")
