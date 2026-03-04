@@ -81,6 +81,7 @@ srcpj() {
 # Command functions (work in both interactive and non-interactive shells)
 adpj() { pjm_fn add -p "$@"; }
 chpj() { pjm_fn change -p "$@"; }
+ctpj() { pjm_fn context "$@"; }
 hlpj() { pjm_fn aliases "$@"; }
 lspj() { pjm_fn list "$@"; }
 mvpj() { pjm_fn rename -f "$1" -t "$2"; }
