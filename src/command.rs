@@ -117,6 +117,11 @@ pub fn aliases(json: bool) {
                 command: "pjmai show".to_string(),
                 description: "Show current project".to_string(),
             },
+            AliasOutput {
+                alias: "srcpj".to_string(),
+                command: "source .pjmai.sh".to_string(),
+                description: "Source project env file (explicit opt-in)".to_string(),
+            },
         ];
         output::print_json(&AliasesOutput { aliases });
     } else {
@@ -131,6 +136,7 @@ pub fn aliases(json: bool) {
         println!("rmpj <name>               # alias for pjmai remove");
         println!("scpj [dir]                # alias for pjmai scan");
         println!("shpj                      # alias for pjmai show");
+        println!("srcpj                     # source .pjmai.sh (opt-in env)");
     }
 
     info!("aliases done");

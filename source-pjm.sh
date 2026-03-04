@@ -9,6 +9,10 @@ pjm_fn() {
     case "$PJM_EXIT" in
         2)
             cd "${PJM_OUT}"
+            # Check for .pjmai.sh and warn (don't auto-execute)
+            if [[ -f .pjmai.sh ]]; then
+                echo "\033[0;33mFound .pjmai.sh\033[0m - inspect with 'cat .pjmai.sh', run with 'srcpj'"
+            fi
             ;;
         3)
             source "$PJM_OUT"
@@ -17,6 +21,16 @@ pjm_fn() {
             echo "$PJM_OUT"
             ;;
     esac
+}
+
+# Source .pjmai.sh in current directory (explicit opt-in for project environment)
+srcpj() {
+    if [[ -f .pjmai.sh ]]; then
+        echo "Sourcing .pjmai.sh..."
+        source .pjmai.sh
+    else
+        echo "No .pjmai.sh in current directory"
+    fi
 }
 
 # Command functions (work in both interactive and non-interactive shells)
