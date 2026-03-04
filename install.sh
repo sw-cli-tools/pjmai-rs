@@ -3,10 +3,11 @@
 # One-line install: curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/main/install.sh | bash
 #
 # Options:
-#   --no-shell    Skip shell integration (don't modify rc files)
+#   --no-shell        Skip shell integration (don't modify rc files)
 #   --no-completions  Skip shell completion installation
-#   --prefix DIR  Install to DIR instead of ~/.local/bin
-#   --help        Show this help message
+#   --prefix DIR      Install to DIR instead of ~/.local/bin
+#   --scan-base DIR   Scan directory for git repositories after install
+#   --help            Show this help message
 
 set -e
 
@@ -17,6 +18,7 @@ INSTALL_SHELL=true
 INSTALL_COMPLETIONS=true
 LOCAL_DIR=""
 TEMP_DIR=""
+SCAN_BASE=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -55,6 +57,7 @@ Options:
     --no-completions    Skip shell completion installation
     --prefix DIR        Install to DIR instead of ~/.local/bin
     --local DIR         Build from local directory instead of cloning from GitHub
+    --scan-base DIR     Scan directory for git repositories after install
     --help              Show this help message
 
 Examples:
@@ -69,6 +72,9 @@ Examples:
 
     # Install from local directory (for development)
     ./install.sh --local .
+
+    # Install and scan for git repositories
+    ./install.sh --local . --scan-base ~/code
 EOF
     exit 0
 }
@@ -97,6 +103,13 @@ parse_args() {
                     error "--local requires a directory argument (e.g., --local .)"
                 fi
                 LOCAL_DIR="$2"
+                shift 2
+                ;;
+            --scan-base)
+                if [[ -z "$2" || "$2" == --* ]]; then
+                    error "--scan-base requires a directory argument (e.g., --scan-base ~/code)"
+                fi
+                SCAN_BASE="$2"
                 shift 2
                 ;;
             --help|-h)
@@ -403,6 +416,35 @@ verify_installation() {
     fi
 }
 
+# Scan for git repositories if --scan-base was specified
+run_scan() {
+    if [[ -z "$SCAN_BASE" ]]; then
+        return
+    fi
+
+    info "Scanning for git repositories in ${SCAN_BASE}..."
+    echo ""
+
+    export PATH="${INSTALL_PREFIX}:$PATH"
+
+    # Run the scan command (dry-run first to show what was found)
+    if pjmai scan "$SCAN_BASE" --dry-run; then
+        echo ""
+        read -p "Add all found projects? [Y/n] " response
+        case "$response" in
+            [Nn]*)
+                info "Skipping project import. You can run 'scpj ${SCAN_BASE}' later."
+                ;;
+            *)
+                pjmai scan "$SCAN_BASE" --add-all
+                success "Projects imported!"
+                ;;
+        esac
+    else
+        warn "Scan failed or no repositories found in ${SCAN_BASE}"
+    fi
+}
+
 # Print final instructions
 print_instructions() {
     echo ""
@@ -458,6 +500,7 @@ main() {
     configure_shell
     install_completions
     verify_installation
+    run_scan
     print_instructions
 }
 
