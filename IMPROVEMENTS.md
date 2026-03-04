@@ -1005,12 +1005,28 @@ Switch to pjmai? [Y/n]
 - `pjmai env -p <project> show` - Display environment config
 - `pjmai env -p <project> clear` - Clear all environment config
 
-**Deferred to Phase 3.1:**
+### Phase 3.1: Extended Environment Features ✅ COMPLETE
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| on_exit hooks | ⏳ Pending | Commands to run when leaving project |
-| path_prepend | ⏳ Pending | Modify PATH per project |
+| on_exit hooks | ✅ Done | Commands to run when leaving project |
+| path_prepend | ✅ Done | Modify PATH per project |
+| path_remove | ✅ Done | Remove paths from prepend list |
+| Shell wrapper on_exit | ✅ Done | `_PJMAI_ON_EXIT` variable for cleanup |
+
+**New commands added in Phase 3.1:**
+- `pjmai env -p <project> on-exit CMD` - Add exit hook command
+- `pjmai env -p <project> path-prepend PATH` - Add path to PATH
+- `pjmai env -p <project> path-remove PATH` - Remove path from prepend list
+
+**How on_exit hooks work:**
+When entering a project, any `on_exit` commands are stored in the shell variable `_PJMAI_ON_EXIT`. When switching to another project via `chpj`, the shell wrapper runs these exit commands before setting up the new project. This enables cleanup actions like `deactivate` for virtual environments.
+
+**Deferred to Phase 3.2:**
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Auto-detect command | ⏳ Pending | `pjmai env auto-detect` for .venv, .nvmrc, .envrc |
 | uv/venv integration | ⏳ Pending | Auto-activate based on pyproject.toml |
 | nvm integration | ⏳ Pending | Auto-run `nvm use` based on .nvmrc |
 | Direnv compatibility | ⏳ Pending | Integration wrapper for .envrc |

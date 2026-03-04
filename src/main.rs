@@ -56,6 +56,15 @@ fn run() -> Result<()> {
             args::EnvAction::OnEnter { command: cmd } => {
                 command::env_on_enter(project, cmd, json)?
             }
+            args::EnvAction::OnExit { command: cmd } => {
+                command::env_on_exit(project, cmd, json)?
+            }
+            args::EnvAction::PathPrepend { path } => {
+                command::env_path_prepend(project, path, json)?
+            }
+            args::EnvAction::PathRemove { path } => {
+                command::env_path_remove(project, path, json)?
+            }
             args::EnvAction::Show {} => command::env_show(project, json)?,
             args::EnvAction::Clear {} => command::env_clear(project, json)?,
         },

@@ -2696,6 +2696,127 @@ pub fn env_on_enter(project_name: &str, command: &str, json: bool) -> Result<()>
     Ok(())
 }
 
+/// Add an on_exit command to a project
+pub fn env_on_exit(project_name: &str, command: &str, json: bool) -> Result<()> {
+    info!("env on_exit {} for {}", command, project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    // Ensure metadata exists
+    if project.metadata.is_none() {
+        project.metadata = Some(projects::ProjectMetadata::default());
+    }
+
+    let metadata = project.metadata.as_mut().unwrap();
+
+    // Ensure environment exists
+    if metadata.environment.is_none() {
+        metadata.environment = Some(projects::EnvironmentConfig::default());
+    }
+
+    let env = metadata.environment.as_mut().unwrap();
+
+    // Ensure on_exit exists
+    if env.on_exit.is_none() {
+        env.on_exit = Some(Vec::new());
+    }
+
+    env.on_exit.as_mut().unwrap().push(command.to_string());
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "on_exit".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Added on_exit command for project {}", project_name);
+    }
+
+    Ok(())
+}
+
+/// Prepend a path to PATH for a project
+pub fn env_path_prepend(project_name: &str, path: &str, json: bool) -> Result<()> {
+    info!("env path_prepend {} for {}", path, project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    // Ensure metadata exists
+    if project.metadata.is_none() {
+        project.metadata = Some(projects::ProjectMetadata::default());
+    }
+
+    let metadata = project.metadata.as_mut().unwrap();
+
+    // Ensure environment exists
+    if metadata.environment.is_none() {
+        metadata.environment = Some(projects::EnvironmentConfig::default());
+    }
+
+    let env = metadata.environment.as_mut().unwrap();
+
+    // Ensure path_prepend exists
+    if env.path_prepend.is_none() {
+        env.path_prepend = Some(Vec::new());
+    }
+
+    env.path_prepend.as_mut().unwrap().push(path.to_string());
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "path_prepend".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Added path_prepend '{}' for project {}", path, project_name);
+    }
+
+    Ok(())
+}
+
+/// Remove a path from the path_prepend list
+pub fn env_path_remove(project_name: &str, path: &str, json: bool) -> Result<()> {
+    info!("env path_remove {} for {}", path, project_name);
+    let mut registry = util::projects()?;
+
+    let project = registry
+        .find_project_mut(project_name)
+        .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
+
+    if let Some(ref mut metadata) = project.metadata
+        && let Some(ref mut env) = metadata.environment
+        && let Some(ref mut paths) = env.path_prepend
+    {
+        paths.retain(|p| p != path);
+    }
+
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&EnvModifyOutput {
+            success: true,
+            operation: "path_remove".to_string(),
+            project: project_name.to_string(),
+        });
+    } else {
+        println!("Removed path_prepend '{}' for project {}", path, project_name);
+    }
+
+    Ok(())
+}
+
 /// Show environment config for a project
 pub fn env_show(project_name: &str, json: bool) -> Result<()> {
     info!("env show for {}", project_name);
@@ -2705,17 +2826,19 @@ pub fn env_show(project_name: &str, json: bool) -> Result<()> {
         .find_project(project_name)
         .ok_or_else(|| PjmError::ProjectNotFound(project_name.to_string()))?;
 
-    let (vars, on_enter) = if let Some(ref metadata) = project.metadata {
+    let (vars, on_enter, on_exit, path_prepend) = if let Some(ref metadata) = project.metadata {
         if let Some(ref env) = metadata.environment {
             (
                 env.vars.clone().unwrap_or_default(),
                 env.on_enter.clone().unwrap_or_default(),
+                env.on_exit.clone().unwrap_or_default(),
+                env.path_prepend.clone().unwrap_or_default(),
             )
         } else {
-            (HashMap::new(), Vec::new())
+            (HashMap::new(), Vec::new(), Vec::new(), Vec::new())
         }
     } else {
-        (HashMap::new(), Vec::new())
+        (HashMap::new(), Vec::new(), Vec::new(), Vec::new())
     };
 
     if json {
@@ -2723,10 +2846,12 @@ pub fn env_show(project_name: &str, json: bool) -> Result<()> {
             project: project_name.to_string(),
             vars,
             on_enter,
+            on_exit,
+            path_prepend,
         });
     } else {
         println!("Environment config for project {}:", project_name.cyan());
-        if vars.is_empty() && on_enter.is_empty() {
+        if vars.is_empty() && on_enter.is_empty() && on_exit.is_empty() && path_prepend.is_empty() {
             println!("  (no environment configuration)");
         } else {
             if !vars.is_empty() {
@@ -2735,9 +2860,21 @@ pub fn env_show(project_name: &str, json: bool) -> Result<()> {
                     println!("    {}={}", k, v);
                 }
             }
+            if !path_prepend.is_empty() {
+                println!("  {}:", "Path prepend".green());
+                for p in &path_prepend {
+                    println!("    {}", p);
+                }
+            }
             if !on_enter.is_empty() {
                 println!("  {}:", "On enter".green());
                 for cmd in &on_enter {
+                    println!("    {}", cmd);
+                }
+            }
+            if !on_exit.is_empty() {
+                println!("  {}:", "On exit".green());
+                for cmd in &on_exit {
                     println!("    {}", cmd);
                 }
             }
@@ -2782,8 +2919,10 @@ fn generate_env_setup(project: &projects::ChangeToProject, file_path: &str) -> O
     // Check if there's anything to set up
     let has_vars = env.vars.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
     let has_on_enter = env.on_enter.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    let has_on_exit = env.on_exit.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    let has_path_prepend = env.path_prepend.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
 
-    if !has_vars && !has_on_enter {
+    if !has_vars && !has_on_enter && !has_on_exit && !has_path_prepend {
         return None;
     }
 
@@ -2792,6 +2931,15 @@ fn generate_env_setup(project: &projects::ChangeToProject, file_path: &str) -> O
     // CD to directory
     script.push_str(&format!("cd '{}'\n", file_path));
 
+    // PATH modifications (before other env vars so commands can use updated PATH)
+    if let Some(paths) = &env.path_prepend {
+        for p in paths {
+            // Escape single quotes in path
+            let escaped_p = p.replace('\'', "'\\''");
+            script.push_str(&format!("export PATH='{}':\"$PATH\"\n", escaped_p));
+        }
+    }
+
     // Environment variables
     if let Some(vars) = &env.vars {
         for (k, v) in vars {
@@ -2799,6 +2947,16 @@ fn generate_env_setup(project: &projects::ChangeToProject, file_path: &str) -> O
             let escaped_v = v.replace('\'', "'\\''");
             script.push_str(&format!("export {}='{}'\n", k, escaped_v));
         }
+    }
+
+    // Store on_exit commands for later (shell will eval this when switching projects)
+    if let Some(cmds) = &env.on_exit {
+        let exit_script = cmds.join("; ");
+        let escaped = exit_script.replace('\'', "'\\''");
+        script.push_str(&format!("_PJMAI_ON_EXIT='{}'\n", escaped));
+    } else {
+        // Clear any previous on_exit
+        script.push_str("_PJMAI_ON_EXIT=''\n");
     }
 
     // On-enter commands

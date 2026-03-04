@@ -68,6 +68,12 @@ pub struct EnvironmentConfig {
     /// Commands to run on project entry
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_enter: Option<Vec<String>>,
+    /// Commands to run when leaving the project
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_exit: Option<Vec<String>>,
+    /// Paths to prepend to PATH
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path_prepend: Option<Vec<String>>,
 }
 
 /// An action associated with a project

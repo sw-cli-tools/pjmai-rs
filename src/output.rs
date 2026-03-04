@@ -290,6 +290,10 @@ pub struct EnvShowOutput {
     pub vars: HashMap<String, String>,
     /// Commands to run on project entry
     pub on_enter: Vec<String>,
+    /// Commands to run when leaving the project
+    pub on_exit: Vec<String>,
+    /// Paths to prepend to PATH
+    pub path_prepend: Vec<String>,
 }
 
 /// JSON output for env modification commands

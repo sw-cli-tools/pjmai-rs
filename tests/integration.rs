@@ -1336,3 +1336,197 @@ FOO = "bar"
         .stdout(predicate::str::contains("export FOO='bar'"))
         .stdout(predicate::str::contains("echo hello"));
 }
+
+#[test]
+fn test_env_on_exit() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "on-exit", "deactivate"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added on_exit command"));
+
+    // Verify config updated
+    let config = read_config(&temp_dir);
+    assert!(config.contains("on_exit"));
+    assert!(config.contains("deactivate"));
+}
+
+#[test]
+fn test_env_path_prepend() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "path-prepend", "./node_modules/.bin"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added path_prepend"));
+
+    // Verify config updated
+    let config = read_config(&temp_dir);
+    assert!(config.contains("path_prepend"));
+    assert!(config.contains("node_modules/.bin"));
+}
+
+#[test]
+fn test_env_path_remove() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment]
+path_prepend = ["./bin", "./node_modules/.bin"]
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "path-remove", "./bin"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Removed path_prepend"));
+
+    // Verify ./bin is removed but ./node_modules/.bin remains
+    let config = read_config(&temp_dir);
+    assert!(!config.contains("\"./bin\""));
+    assert!(config.contains("node_modules/.bin"));
+}
+
+#[test]
+fn test_env_show_with_new_fields() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment]
+on_enter = ["source .venv/bin/activate"]
+on_exit = ["deactivate"]
+path_prepend = ["./.venv/bin"]
+[project.metadata.environment.vars]
+FOO = "bar"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("FOO=bar"))
+        .stdout(predicate::str::contains("Path prepend"))
+        .stdout(predicate::str::contains("./.venv/bin"))
+        .stdout(predicate::str::contains("On enter"))
+        .stdout(predicate::str::contains("source .venv/bin/activate"))
+        .stdout(predicate::str::contains("On exit"))
+        .stdout(predicate::str::contains("deactivate"));
+}
+
+#[test]
+fn test_env_show_json_with_new_fields() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment]
+on_enter = ["echo enter"]
+on_exit = ["echo exit"]
+path_prepend = ["./bin"]
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "env", "-p", "test", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"on_exit\":"))
+        .stdout(predicate::str::contains("\"echo exit\""))
+        .stdout(predicate::str::contains("\"path_prepend\":"))
+        .stdout(predicate::str::contains("\"./bin\""));
+}
+
+#[test]
+fn test_change_with_full_env_config() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+[project.metadata.environment]
+on_enter = ["echo entering"]
+on_exit = ["echo exiting"]
+path_prepend = ["./bin", "./.venv/bin"]
+[project.metadata.environment.vars]
+MY_VAR = "value"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Change command with full env config should exit with code 5
+    // and include all env setup in the script
+    pjmai_cmd(&temp_dir)
+        .args(["change", "-p", "test"])
+        .assert()
+        .code(5)
+        .stdout(predicate::str::contains("cd '"))
+        // PATH prepend comes first
+        .stdout(predicate::str::contains("export PATH='./bin':\"$PATH\""))
+        .stdout(predicate::str::contains("export PATH='./.venv/bin':\"$PATH\""))
+        // Then env vars
+        .stdout(predicate::str::contains("export MY_VAR='value'"))
+        // Then on_exit storage
+        .stdout(predicate::str::contains("_PJMAI_ON_EXIT='echo exiting'"))
+        // Then on_enter commands
+        .stdout(predicate::str::contains("echo entering"));
+}

@@ -409,6 +409,27 @@ pub enum EnvAction {
         command: String,
     },
 
+    /// Add an on_exit command (runs when leaving the project)
+    #[command(name = "on-exit")]
+    OnExit {
+        /// Command to run when leaving the project
+        command: String,
+    },
+
+    /// Prepend a path to PATH when entering the project
+    #[command(name = "path-prepend")]
+    PathPrepend {
+        /// Path to prepend to PATH
+        path: String,
+    },
+
+    /// Remove a path from the path_prepend list
+    #[command(name = "path-remove")]
+    PathRemove {
+        /// Path to remove from the prepend list
+        path: String,
+    },
+
     /// Show current environment config
     #[command(name = "show")]
     Show {},

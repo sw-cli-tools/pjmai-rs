@@ -28,6 +28,12 @@ _pjm_is_approved() {
 
 # Core wrapper that handles exit codes for directory changes and file sourcing
 pjm_fn() {
+    # Run on_exit from previous project first (if any)
+    if [[ -n "$_PJMAI_ON_EXIT" ]]; then
+        eval "$_PJMAI_ON_EXIT"
+        _PJMAI_ON_EXIT=""
+    fi
+
     PJM_OUT=$(pjmai "$@")
     PJM_EXIT=$?
     case "$PJM_EXIT" in

@@ -393,14 +393,21 @@ This prevents untrusted code execution from cloned repos while enabling convenie
 
 ### Per-Project Environment Configuration
 
-Configure environment variables and entry hooks for individual projects:
+Configure environment variables, PATH modifications, and entry/exit hooks for individual projects:
 
 ```bash
 # Set environment variable for a project
 evpj webapp set DATABASE_URL "postgres://localhost/webapp"
 
+# Prepend paths to PATH (for project-local binaries)
+evpj webapp path-prepend "./.venv/bin"
+evpj webapp path-prepend "./node_modules/.bin"
+
 # Add command to run when entering project
 evpj webapp on-enter "source .venv/bin/activate"
+
+# Add command to run when LEAVING project (cleanup)
+evpj webapp on-exit "deactivate"
 
 # View project environment config
 evpj webapp show
@@ -408,18 +415,29 @@ evpj webapp show
 # Environment config for project webapp:
 #   Variables:
 #     DATABASE_URL=postgres://localhost/webapp
+#   Path prepend:
+#     ./.venv/bin
+#     ./node_modules/.bin
 #   On enter:
 #     source .venv/bin/activate
+#   On exit:
+#     deactivate
+
+# Remove a path from the prepend list
+evpj webapp path-remove "./node_modules/.bin"
 
 # Clear all environment config
 evpj webapp clear
 ```
 
 When you switch to a project with environment config (`chpj webapp`), the shell will:
-1. Change to the project directory
-2. Export environment variables
-3. Run on_enter commands
-4. Check for `.pjmai.sh` (as usual)
+1. Run any on_exit commands from the previous project (cleanup)
+2. Change to the new project directory
+3. Prepend paths to PATH
+4. Export environment variables
+5. Store on_exit commands for later (when switching away)
+6. Run on_enter commands
+7. Check for `.pjmai.sh` (as usual)
 
 The environment config is stored in `~/.pjmai/config.toml`:
 
@@ -430,7 +448,9 @@ name = "webapp"
 file_or_dir = "~/code/webapp"
 [project.metadata.environment]
 vars = { DATABASE_URL = "postgres://localhost/webapp" }
+path_prepend = ["./.venv/bin", "./node_modules/.bin"]
 on_enter = ["source .venv/bin/activate"]
+on_exit = ["deactivate"]
 ```
 
 ### Managing Your Project List
