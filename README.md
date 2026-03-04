@@ -155,6 +155,9 @@ prpj
 | `pjmai complete commands [prefix]` | - | Fast command name completion for shells |
 | `pjmai completions <shell>` | - | Generate shell completions |
 | `pjmai scan [dir]` | `scpj` | Scan for git repositories and add as projects |
+| `pjmai context [-p project]` | `ctpj` | Show project context for AI agents |
+| `pjmai config export` | - | Export configuration to stdout |
+| `pjmai config import <file>` | - | Import configuration from a file |
 | `pjmai setup [shell]` | - | Auto-configure shell integration |
 | - | `srcpj` | Source and approve .pjmai.sh in current directory |
 
@@ -415,6 +418,32 @@ export PJMAI_CONFIG_DIR=~/my-custom-config
 ```
 
 This is useful for testing or maintaining separate project registries.
+
+### Export and Import
+
+Backup your configuration or share it across machines:
+
+```bash
+# Export to TOML (default)
+pjmai config export > pjmai-backup.toml
+
+# Export to JSON
+pjmai config export --format json > pjmai-backup.json
+
+# Import from a file
+pjmai config import pjmai-backup.toml
+
+# Preview import without making changes
+pjmai config import --dry-run colleague-config.toml
+
+# Merge with existing config (updates metadata for existing projects)
+pjmai config import --merge shared-config.toml
+```
+
+Import behavior:
+- **Default**: Adds new projects, skips existing ones (by name)
+- **With `--merge`**: Adds new projects, updates metadata for existing ones
+- **With `--dry-run`**: Shows what would happen without making changes
 
 ## How It Works
 

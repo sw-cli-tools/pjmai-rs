@@ -858,3 +858,270 @@ project = []
     assert!(!stdout.contains("add"));
     assert!(!stdout.contains("list"));
 }
+
+// ============================================================
+// Config export/import tests
+// ============================================================
+
+#[test]
+fn test_config_export_toml() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+
+[[project]]
+name = "test"
+
+[project.action]
+file_or_dir = "/tmp/test"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["config", "export"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("version"))
+        .stdout(predicate::str::contains("current_project"))
+        .stdout(predicate::str::contains("[[project]]"))
+        .stdout(predicate::str::contains("name = \"test\""));
+}
+
+#[test]
+fn test_config_export_json() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+
+[[project]]
+name = "test"
+
+[project.action]
+file_or_dir = "/tmp/test"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["config", "export", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"version\""))
+        .stdout(predicate::str::contains("\"current_project\""))
+        .stdout(predicate::str::contains("\"projects\""))
+        .stdout(predicate::str::contains("\"name\": \"test\""));
+}
+
+#[test]
+fn test_config_export_invalid_format() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["config", "export", "--format", "xml"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("invalid format"));
+}
+
+#[test]
+fn test_config_import_dry_run() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create initial empty config
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    )
+    .unwrap();
+
+    // Create import file with a project
+    let import_file = temp_dir.path().join("import.toml");
+    fs::write(
+        &import_file,
+        r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "imported"
+
+[project.action]
+file_or_dir = "/tmp/imported"
+"#,
+    )
+    .unwrap();
+
+    // Dry run should succeed and show what would be imported
+    pjmai_cmd(&temp_dir)
+        .args(["config", "import", "--dry-run", import_file.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Would import"))
+        .stdout(predicate::str::contains("imported"));
+
+    // Verify nothing was actually imported
+    let config = read_config(&temp_dir);
+    assert!(!config.contains("imported"));
+}
+
+#[test]
+fn test_config_import_adds_new_projects() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create initial config with one project
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        r#"version = "0.1.0"
+current_project = "existing"
+
+[[project]]
+name = "existing"
+
+[project.action]
+file_or_dir = "/tmp/existing"
+"#,
+    )
+    .unwrap();
+
+    // Create import file with a new project
+    let import_file = temp_dir.path().join("import.toml");
+    fs::write(
+        &import_file,
+        r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "newproject"
+
+[project.action]
+file_or_dir = "/tmp/newproject"
+"#,
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["config", "import", import_file.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Imported"))
+        .stdout(predicate::str::contains("newproject"));
+
+    // Verify the project was added
+    let config = read_config(&temp_dir);
+    assert!(config.contains("newproject"));
+    assert!(config.contains("existing")); // Original still there
+}
+
+#[test]
+fn test_config_import_skips_existing() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create initial config with a project
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "/tmp/myproject"
+"#,
+    )
+    .unwrap();
+
+    // Create import file with the same project name
+    let import_file = temp_dir.path().join("import.toml");
+    fs::write(
+        &import_file,
+        r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "/tmp/different-path"
+"#,
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["config", "import", import_file.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Skipped"));
+
+    // Verify the original path is unchanged
+    let config = read_config(&temp_dir);
+    assert!(config.contains("/tmp/myproject"));
+    assert!(!config.contains("/tmp/different-path"));
+}
+
+#[test]
+fn test_config_import_json() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create initial empty config
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    )
+    .unwrap();
+
+    // Create JSON import file
+    let import_file = temp_dir.path().join("import.json");
+    fs::write(
+        &import_file,
+        r#"{
+  "version": "0.1.0",
+  "current_project": "",
+  "project": [
+    {
+      "name": "jsonproject",
+      "action": {
+        "file_or_dir": "/tmp/jsonproject"
+      }
+    }
+  ]
+}"#,
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "config", "import", import_file.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"success\": true"))
+        .stdout(predicate::str::contains("\"added\": 1"));
+
+    // Verify the project was added
+    let config = read_config(&temp_dir);
+    assert!(config.contains("jsonproject"));
+}
+
+#[test]
+fn test_config_import_nonexistent_file() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["config", "import", "/nonexistent/file.toml"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("does not exist"));
+}
