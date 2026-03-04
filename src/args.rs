@@ -69,6 +69,14 @@ pub enum Subcommands {
         shell: Shell,
     },
 
+    /// Fast completion helper for shells (outputs matching names, one per line)
+    #[command(name = "complete")]
+    Complete {
+        /// What to complete
+        #[command(subcommand)]
+        target: CompleteTarget,
+    },
+
     /// Lists the previously added projects; alias lspj
     #[command(name = "list", alias = "l")]
     List {},
@@ -103,6 +111,24 @@ pub enum Subcommands {
         /// Only install shell completions
         #[arg(long, conflicts_with = "shell_only")]
         completions_only: bool,
+    },
+}
+
+/// Completion targets for the `complete` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum CompleteTarget {
+    /// Complete project names
+    #[command(name = "projects")]
+    Projects {
+        /// Optional prefix to filter projects
+        prefix: Option<String>,
+    },
+
+    /// Complete command names
+    #[command(name = "commands")]
+    Commands {
+        /// Optional prefix to filter commands
+        prefix: Option<String>,
     },
 }
 

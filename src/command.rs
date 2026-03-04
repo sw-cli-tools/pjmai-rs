@@ -452,6 +452,75 @@ fn is_dup(check_project_name: &str, registry: &projects::ProjectsRegistry) -> bo
     false
 }
 
+/// Complete project or command names for shell tab completion
+pub fn complete(target: &crate::args::CompleteTarget) -> Result<()> {
+    use crate::args::CompleteTarget;
+
+    match target {
+        CompleteTarget::Projects { prefix } => {
+            complete_projects(prefix.as_deref());
+        }
+        CompleteTarget::Commands { prefix } => {
+            complete_commands(prefix.as_deref());
+        }
+    }
+
+    Ok(())
+}
+
+/// Output project names matching a prefix (one per line)
+fn complete_projects(prefix: Option<&str>) {
+    info!("complete projects prefix={:?}", prefix);
+
+    // Load projects, silently fail if can't load
+    let Ok(registry) = util::projects() else {
+        return;
+    };
+
+    let prefix_lower = prefix.map(|s| s.to_lowercase());
+
+    for project in &registry.project {
+        let matches = match &prefix_lower {
+            Some(p) => project.name.to_lowercase().starts_with(p),
+            None => true,
+        };
+        if matches {
+            println!("{}", project.name);
+        }
+    }
+}
+
+/// Output command names matching a prefix (one per line)
+fn complete_commands(prefix: Option<&str>) {
+    info!("complete commands prefix={:?}", prefix);
+
+    // List of available commands
+    let commands = [
+        "add",
+        "aliases",
+        "change",
+        "complete",
+        "completions",
+        "list",
+        "prompt",
+        "remove",
+        "setup",
+        "show",
+    ];
+
+    let prefix_lower = prefix.map(|s| s.to_lowercase());
+
+    for cmd in commands {
+        let matches = match &prefix_lower {
+            Some(p) => cmd.starts_with(p),
+            None => true,
+        };
+        if matches {
+            println!("{}", cmd);
+        }
+    }
+}
+
 /// Setup shell integration
 pub fn setup(
     shell: Option<Shell>,

@@ -28,9 +28,9 @@ prpj() { pjm_fn prompt "$@"; }
 rmpj() { pjm_fn remove --project "$@"; }
 shpj() { pjm_fn show "$@"; }
 
-# Helper to get project names for completion
+# Helper to get project names for completion (uses fast native completion)
 _pjm_projects() {
-    pjmai list 2>/dev/null | sed 's/^[> ]//' | awk '{print $1}'
+    pjmai complete projects 2>/dev/null
 }
 
 # Shell-specific completion setup
@@ -38,15 +38,17 @@ if [ -n "$ZSH_VERSION" ]; then
     # Zsh completion
     _pjm_complete() {
         local projects
-        projects=(${(f)"$(_pjm_projects)"})
+        # Use prefix filtering for faster completion with many projects
+        projects=(${(f)"$(pjmai complete projects "${words[CURRENT]}" 2>/dev/null)"})
         _describe 'project' projects
     }
     compdef _pjm_complete chpj rmpj
 elif [ -n "$BASH_VERSION" ]; then
-    # Bash completion
+    # Bash completion with prefix filtering
     _pjm_complete() {
         local cur="${COMP_WORDS[COMP_CWORD]}"
-        COMPREPLY=($(compgen -W "$(_pjm_projects)" -- "$cur"))
+        # Pass prefix directly to pjmai for fast filtering
+        COMPREPLY=($(pjmai complete projects "$cur" 2>/dev/null))
     }
     complete -F _pjm_complete chpj rmpj
 fi

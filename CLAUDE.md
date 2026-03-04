@@ -106,6 +106,19 @@ pjmai --json show          # Show current project as JSON
 pjmai --json change -p x   # Change outputs JSON (with error details if not found)
 ```
 
+## Fast Tab Completion
+
+The `complete` subcommand provides fast, native completion for shells:
+
+```bash
+pjmai complete projects          # List all project names
+pjmai complete projects web      # List projects starting with "web"
+pjmai complete commands          # List all command names
+pjmai complete commands ch       # List commands starting with "ch"
+```
+
+The `source-pjm.sh` script uses this for dynamic tab completion on `chpj` and `rmpj`.
+
 ## Fuzzy Matching
 
 The `change` command supports fuzzy matching: exact match, case-insensitive, prefix match, and substring match. Ambiguous matches show all candidates.

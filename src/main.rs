@@ -28,6 +28,7 @@ fn run() -> Result<()> {
         } => command::add(project, file_or_dir, json)?,
         args::Subcommands::Aliases {} => command::aliases(json),
         args::Subcommands::Change { project } => command::change(project, json)?,
+        args::Subcommands::Complete { target } => command::complete(target)?,
         args::Subcommands::Completions { .. } => unreachable!(), // handled above
         args::Subcommands::List {} => command::list(json)?,
         args::Subcommands::Prompt {} => command::prompt(json)?,

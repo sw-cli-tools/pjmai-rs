@@ -744,3 +744,117 @@ project = []
         .stdout(predicate::str::contains("shell integration"))
         .stdout(predicate::str::contains("--completions-only"));
 }
+
+// ============================================================
+// Complete command tests
+// ============================================================
+
+#[test]
+fn test_complete_projects_all() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "webapp"
+[project.action]
+file_or_dir = "/tmp"
+
+[[project]]
+name = "webapi"
+[project.action]
+file_or_dir = "/tmp"
+
+[[project]]
+name = "cli-tool"
+[project.action]
+file_or_dir = "/tmp"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["complete", "projects"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("webapp"))
+        .stdout(predicate::str::contains("webapi"))
+        .stdout(predicate::str::contains("cli-tool"));
+}
+
+#[test]
+fn test_complete_projects_with_prefix() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "webapp"
+[project.action]
+file_or_dir = "/tmp"
+
+[[project]]
+name = "webapi"
+[project.action]
+file_or_dir = "/tmp"
+
+[[project]]
+name = "cli-tool"
+[project.action]
+file_or_dir = "/tmp"
+"#,
+    );
+
+    // Only "web" prefix matches should appear
+    let output = pjmai_cmd(&temp_dir)
+        .args(["complete", "projects", "web"])
+        .output()
+        .expect("Failed to run command");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("webapp"));
+    assert!(stdout.contains("webapi"));
+    assert!(!stdout.contains("cli-tool"));
+}
+
+#[test]
+fn test_complete_commands_all() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["complete", "commands"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("add"))
+        .stdout(predicate::str::contains("change"))
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("remove"))
+        .stdout(predicate::str::contains("setup"));
+}
+
+#[test]
+fn test_complete_commands_with_prefix() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    // Only commands starting with "c" should appear
+    let output = pjmai_cmd(&temp_dir)
+        .args(["complete", "commands", "c"])
+        .output()
+        .expect("Failed to run command");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("change"));
+    assert!(stdout.contains("complete"));
+    assert!(stdout.contains("completions"));
+    assert!(!stdout.contains("add"));
+    assert!(!stdout.contains("list"));
+}

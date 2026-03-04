@@ -129,6 +129,8 @@ prpj
 | `pjmai show` | `shpj` | Show current project |
 | `pjmai prompt` | `prpj` | Output current project name (for prompts) |
 | `pjmai aliases` | `hlpj` | Show all available aliases |
+| `pjmai complete projects [prefix]` | - | Fast project name completion for shells |
+| `pjmai complete commands [prefix]` | - | Fast command name completion for shells |
 | `pjmai completions <shell>` | - | Generate shell completions |
 | `pjmai setup [shell]` | - | Auto-configure shell integration |
 
