@@ -51,7 +51,22 @@ Integration tests use `PJMAI_CONFIG_DIR` environment variable to isolate test co
 ```bash
 PJMAI_CONFIG_DIR=/tmp/test-pjmai cargo test    # Run with custom config dir
 RUST_LOG=info pjmai -l list                     # Run with logging enabled
+pjmai -d list                                   # Run with debug output
 ```
+
+## Debug Mode
+
+Use `-d` flag to print debug info before executing a command:
+
+```bash
+pjmai -d list
+```
+
+This outputs to stderr:
+- Version info
+- Environment variables (PJMAI_CONFIG_DIR, SHELL, HOME)
+- Config directory and file paths
+- Project list with current project marked
 
 ## Shell Aliases
 

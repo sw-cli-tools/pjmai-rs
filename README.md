@@ -139,8 +139,8 @@ prpj
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--json` | `-j` | Output in JSON format for machine parsing |
-| `--logging` | `-l` | Enable logging |
-| `--debug` | `-d` | Enable debug mode |
+| `--logging` | `-l` | Enable logging (requires `RUST_LOG=info`) |
+| `--debug` | `-d` | Print debug info (config paths, projects) before command |
 
 ## JSON Output Mode
 
