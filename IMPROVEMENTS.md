@@ -1,4 +1,4 @@
-# PJMAI Improvements Roadmap
+# PJMAI-RS Improvements Roadmap
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@
 
 ## Project Introduction
 
-**PJMAI** (Project Manager 1) is a Rust CLI tool for managing and switching between software development projects. It maintains a registry of project "nicknames" mapped to filesystem paths, enabling rapid context switching via short shell aliases.
+**PJMAI-RS** (Project Manager AI - Rust) is a Rust CLI tool for managing and switching between software development projects. It maintains a registry of project "nicknames" mapped to filesystem paths, enabling rapid context switching via short shell aliases.
 
 Key capabilities:
 - **Project Registry**: Store project names with associated paths (directories or setup scripts)
@@ -988,17 +988,33 @@ Switch to pjmai? [Y/n]
 - `pjmai list --tag/--group/--recent` - Filter and sort project list
 - `pjmai complete tags/groups [prefix]` - Tab completion for tags/groups
 
-### Phase 3: Environments (v0.4.0) — NOT STARTED
+### Phase 3: Environments (v0.4.0) ✅ COMPLETE
 *Focus: Environment management*
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Environment variables per project | ⏳ Pending | |
-| on_enter/on_exit hooks | ⏳ Pending | |
-| uv/venv integration | ⏳ Pending | |
-| nvm integration | ⏳ Pending | |
-| Direnv compatibility | ⏳ Pending | |
-| Templates | ⏳ Pending | |
+| Environment variables per project | ✅ Done | `pjmai env set/unset` |
+| on_enter hooks | ✅ Done | `pjmai env on-enter` |
+| Shell integration (exit code 5) | ✅ Done | Executes env setup script |
+| evpj alias | ✅ Done | Shell alias for env commands |
+
+**New commands added:**
+- `pjmai env -p <project> set KEY VALUE` - Set environment variable
+- `pjmai env -p <project> unset KEY` - Remove environment variable
+- `pjmai env -p <project> on-enter CMD` - Add entry hook command
+- `pjmai env -p <project> show` - Display environment config
+- `pjmai env -p <project> clear` - Clear all environment config
+
+**Deferred to Phase 3.1:**
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| on_exit hooks | ⏳ Pending | Commands to run when leaving project |
+| path_prepend | ⏳ Pending | Modify PATH per project |
+| uv/venv integration | ⏳ Pending | Auto-activate based on pyproject.toml |
+| nvm integration | ⏳ Pending | Auto-run `nvm use` based on .nvmrc |
+| Direnv compatibility | ⏳ Pending | Integration wrapper for .envrc |
+| Templates | ⏳ Pending | Reusable environment configurations |
 
 ### Phase 4: AI & Sandboxing (v0.5.0) — NOT STARTED
 *Focus: AI agent support and security*

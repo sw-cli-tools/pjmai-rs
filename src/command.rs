@@ -103,6 +103,11 @@ pub fn aliases(json: bool) {
                 description: "Show project context for AI agents".to_string(),
             },
             AliasOutput {
+                alias: "evpj".to_string(),
+                command: "pjmai env".to_string(),
+                description: "Manage project environment config".to_string(),
+            },
+            AliasOutput {
                 alias: "hlpj".to_string(),
                 command: "pjmai aliases".to_string(),
                 description: "Show all aliases".to_string(),
@@ -158,6 +163,7 @@ pub fn aliases(json: bool) {
         println!("adpj <name> -f <dir|file> # alias for pjmai add");
         println!("chpj <name>               # alias for pjmai change");
         println!("ctpj [name]               # alias for pjmai context");
+        println!("evpj <name> <cmd> [args]  # alias for pjmai env");
         println!("hlpj                      # alias for pjmai aliases");
         println!("lspj                      # alias for pjmai list");
         println!("mvpj <old> <new>          # alias for pjmai rename");

@@ -3,10 +3,10 @@
 
 use colored::Colorize;
 use log::info;
-use pjmai::args;
-use pjmai::command;
-use pjmai::config;
-use pjmai::error::Result;
+use pjmai_rs::args;
+use pjmai_rs::command;
+use pjmai_rs::config;
+use pjmai_rs::error::Result;
 
 /// Run the application and return a Result
 fn run() -> Result<()> {
@@ -93,14 +93,14 @@ fn run() -> Result<()> {
         args::Subcommands::Show {} => command::show(json)?,
         args::Subcommands::Tag { project, action } => command::tag(project, action, json)?,
     }
-    info!(target:"pjmai::main", "finished");
+    info!(target:"pjmai_rs::main", "finished");
     Ok(())
 }
 
 /// Entry point
 fn main() {
     env_logger::init();
-    info!(target:"pjmai::main", "env_logger initialized");
+    info!(target:"pjmai_rs::main", "env_logger initialized");
 
     if let Err(e) = run() {
         eprintln!("{}: {}", "error".red().bold(), e);

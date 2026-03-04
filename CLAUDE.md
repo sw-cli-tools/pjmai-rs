@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PJMAI is a Rust CLI tool for managing and switching between projects via shell aliases. It maintains a project registry at `~/.pjmai/config.toml` and integrates with bash/zsh through exit code signaling.
+PJMAI-RS is a Rust CLI tool for managing and switching between projects via shell aliases. It maintains a project registry at `~/.pjmai/config.toml` and integrates with bash/zsh through exit code signaling.
 
 ## Build Commands
 
@@ -22,6 +22,7 @@ cargo clippy --all-targets --all-features  # Run linter
 - Exit 2: Change directory (`cd` to output path)
 - Exit 3: Source file (`. output_path`)
 - Exit 4: Error occurred (display error message)
+- Exit 5: Execute environment setup (`eval` output script)
 - Other: Print output to console
 
 This allows the CLI to affect the parent shell environment (which a subprocess normally cannot do).
@@ -73,11 +74,18 @@ This outputs to stderr:
 After sourcing `source-pjm.sh` (or running `pjmai setup`):
 - `adpj` - Add project
 - `chpj` - Change to project
-- `lspj` - List projects
-- `rmpj` - Remove project
-- `shpj` - Show current project
-- `prpj` - Get project name for shell prompt
+- `ctpj` - Show project context
+- `evpj` - Manage project environment config
 - `hlpj` - Show all aliases
+- `lspj` - List projects
+- `mvpj` - Rename project
+- `popj` - Pop from project stack
+- `prpj` - Get project name for shell prompt
+- `pspj` - Push to stack and switch project
+- `rmpj` - Remove project
+- `scpj` - Scan for git repositories
+- `shpj` - Show current project
+- `srcpj` - Source and approve .pjmai.sh
 
 ## Installation
 

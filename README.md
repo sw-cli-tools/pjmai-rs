@@ -1,10 +1,10 @@
-# PJMAI - Project Management CLI
+# PJMAI-RS - Project Management CLI
 
 A Rust CLI tool for managing and quickly switching between projects via shell aliases.
 
 ## Overview
 
-PJMAI helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands.
+PJMAI-RS helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands, and supports per-project environment configuration.
 
 ## Installation
 
@@ -156,6 +156,7 @@ prpj
 | `pjmai completions <shell>` | - | Generate shell completions |
 | `pjmai scan [dir]` | `scpj` | Scan for git repositories and add as projects |
 | `pjmai context [-p project]` | `ctpj` | Show project context for AI agents |
+| `pjmai env -p <name> <action>` | `evpj` | Manage project environment config |
 | `pjmai config export` | - | Export configuration to stdout |
 | `pjmai config import <file>` | - | Import configuration from a file |
 | `pjmai setup [shell]` | - | Auto-configure shell integration |
@@ -390,6 +391,48 @@ chpj myproject      # .pjmai.sh sourced automatically
 
 This prevents untrusted code execution from cloned repos while enabling convenient environment setup for your own projects.
 
+### Per-Project Environment Configuration
+
+Configure environment variables and entry hooks for individual projects:
+
+```bash
+# Set environment variable for a project
+evpj webapp set DATABASE_URL "postgres://localhost/webapp"
+
+# Add command to run when entering project
+evpj webapp on-enter "source .venv/bin/activate"
+
+# View project environment config
+evpj webapp show
+# Output:
+# Environment config for project webapp:
+#   Variables:
+#     DATABASE_URL=postgres://localhost/webapp
+#   On enter:
+#     source .venv/bin/activate
+
+# Clear all environment config
+evpj webapp clear
+```
+
+When you switch to a project with environment config (`chpj webapp`), the shell will:
+1. Change to the project directory
+2. Export environment variables
+3. Run on_enter commands
+4. Check for `.pjmai.sh` (as usual)
+
+The environment config is stored in `~/.pjmai/config.toml`:
+
+```toml
+[[project]]
+name = "webapp"
+[project.action]
+file_or_dir = "~/code/webapp"
+[project.metadata.environment]
+vars = { DATABASE_URL = "postgres://localhost/webapp" }
+on_enter = ["source .venv/bin/activate"]
+```
+
 ### Managing Your Project List
 
 ```bash
@@ -447,11 +490,12 @@ Import behavior:
 
 ## How It Works
 
-PJMAI uses exit codes to communicate with the shell wrapper script:
+PJMAI-RS uses exit codes to communicate with the shell wrapper script:
 
 - **Exit 2**: The output is a directory path; the shell will `cd` to it
 - **Exit 3**: The output is a file path; the shell will `source` it
 - **Exit 4**: Error occurred; the shell displays the error message
+- **Exit 5**: The output is a shell script; the shell will `eval` it (environment setup)
 
 This mechanism allows the CLI (which runs as a subprocess) to affect the parent shell's environment.
 

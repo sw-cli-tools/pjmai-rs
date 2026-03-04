@@ -11,7 +11,7 @@ use tempfile::TempDir;
 
 /// Helper to create a command with a temp config directory
 fn pjmai_cmd(temp_dir: &TempDir) -> Command {
-    let mut cmd: Command = cargo_bin_cmd!("pjmai");
+    let mut cmd: Command = cargo_bin_cmd!("pjmai-rs");
     cmd.env("PJMAI_CONFIG_DIR", temp_dir.path());
     cmd
 }
@@ -407,7 +407,7 @@ project = []
     )
     .unwrap();
 
-    let mut cmd: Command = cargo_bin_cmd!("pjmai");
+    let mut cmd: Command = cargo_bin_cmd!("pjmai-rs");
     cmd.env("PJMAI_CONFIG_DIR", &nested_config_dir)
         .args(["add", "-p", "test", "-f", proj_dir.to_str().unwrap()])
         .assert()
@@ -1124,4 +1124,215 @@ project = []
         .assert()
         .failure()
         .stderr(predicate::str::contains("does not exist"));
+}
+
+// ============================================================
+// Environment configuration tests
+// ============================================================
+
+#[test]
+fn test_env_set_variable() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "set", "FOO", "bar"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Set FOO=bar"));
+
+    // Verify config updated
+    let config = read_config(&temp_dir);
+    assert!(config.contains("FOO"));
+    assert!(config.contains("bar"));
+}
+
+#[test]
+fn test_env_on_enter() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "on-enter", "echo hello"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added on_enter command"));
+
+    // Verify config updated
+    let config = read_config(&temp_dir);
+    assert!(config.contains("on_enter"));
+    assert!(config.contains("echo hello"));
+}
+
+#[test]
+fn test_env_show() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment]
+on_enter = ["echo hello"]
+[project.metadata.environment.vars]
+FOO = "bar"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("FOO=bar"))
+        .stdout(predicate::str::contains("echo hello"));
+}
+
+#[test]
+fn test_env_show_json() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment]
+on_enter = ["echo hello"]
+[project.metadata.environment.vars]
+FOO = "bar"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "env", "-p", "test", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"project\": \"test\""))
+        .stdout(predicate::str::contains("\"FOO\": \"bar\""))
+        .stdout(predicate::str::contains("\"echo hello\""));
+}
+
+#[test]
+fn test_env_clear() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment]
+on_enter = ["echo hello"]
+[project.metadata.environment.vars]
+FOO = "bar"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "clear"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Cleared environment config"));
+
+    // Verify environment is cleared
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("no environment configuration"));
+}
+
+#[test]
+fn test_env_unset() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = "test"
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "/tmp/test"
+[project.metadata.environment.vars]
+FOO = "bar"
+BAZ = "qux"
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["env", "-p", "test", "unset", "FOO"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Unset FOO"));
+
+    // Verify FOO is removed but BAZ remains
+    let config = read_config(&temp_dir);
+    assert!(!config.contains("FOO"));
+    assert!(config.contains("BAZ"));
+}
+
+#[test]
+fn test_change_with_env_exits_code_5() {
+    let temp_dir = TempDir::new().unwrap();
+    let project_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+[[project]]
+name = "test"
+[project.action]
+file_or_dir = "{}"
+[project.metadata.environment]
+on_enter = ["echo hello"]
+[project.metadata.environment.vars]
+FOO = "bar"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Change command with env config should exit with code 5
+    pjmai_cmd(&temp_dir)
+        .args(["change", "-p", "test"])
+        .assert()
+        .code(5)
+        .stdout(predicate::str::contains("cd '"))
+        .stdout(predicate::str::contains("export FOO='bar'"))
+        .stdout(predicate::str::contains("echo hello"));
 }
