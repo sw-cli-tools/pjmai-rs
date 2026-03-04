@@ -3,6 +3,7 @@
 //! These tests use a temporary config directory via the PJMAI_CONFIG_DIR environment variable
 //! to ensure tests don't affect the user's actual configuration.
 
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
@@ -10,7 +11,7 @@ use tempfile::TempDir;
 
 /// Helper to create a command with a temp config directory
 fn pjmai_cmd(temp_dir: &TempDir) -> Command {
-    let mut cmd = Command::cargo_bin("pjmai").unwrap();
+    let mut cmd: Command = cargo_bin_cmd!("pjmai");
     cmd.env("PJMAI_CONFIG_DIR", temp_dir.path());
     cmd
 }
@@ -406,7 +407,7 @@ project = []
     )
     .unwrap();
 
-    let mut cmd = Command::cargo_bin("pjmai").unwrap();
+    let mut cmd: Command = cargo_bin_cmd!("pjmai");
     cmd.env("PJMAI_CONFIG_DIR", &nested_config_dir)
         .args(["add", "-p", "test", "-f", proj_dir.to_str().unwrap()])
         .assert()
