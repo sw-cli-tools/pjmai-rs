@@ -156,6 +156,7 @@ prpj
 | `pjmai completions <shell>` | - | Generate shell completions |
 | `pjmai scan [dir]` | `scpj` | Scan for git repositories and add as projects |
 | `pjmai setup [shell]` | - | Auto-configure shell integration |
+| - | `srcpj` | Source and approve .pjmai.sh in current directory |
 
 ### Global Flags
 
@@ -347,6 +348,45 @@ The prompt shows the current project and stack depth:
 
 The number after `:` indicates how many `popj` commands will return you to previous projects.
 
+### Project Environment Files (.pjmai.sh)
+
+Set up per-project environment variables, activate virtual environments, or run setup commands.
+
+**Create a `.pjmai.sh` in your project:**
+```bash
+# ~/code/myproject/.pjmai.sh
+source .venv/bin/activate
+export SRCROOT="$PWD"
+export PYTHONPATH="$PWD/src"
+```
+
+**Security model (approve once, auto-source if unchanged):**
+
+```bash
+chpj myproject
+# Output: Found .pjmai.sh - inspect: 'cat .pjmai.sh', approve: 'srcpj'
+
+# First time: inspect the file
+cat .pjmai.sh
+
+# If trusted, approve and source it
+srcpj
+# Output: Sourcing .pjmai.sh...
+# Output: Approved - will auto-source until file changes
+
+# Future visits: auto-sourced silently (hash unchanged)
+chpj other-project
+chpj myproject      # .pjmai.sh sourced automatically
+```
+
+**How it works:**
+- First visit: Warning shown, manual `srcpj` required
+- `srcpj`: Sources the file AND saves a hash approval
+- Future visits: If file hash matches approval, auto-sources silently
+- File changes: Warning shown again, re-approval required
+
+This prevents untrusted code execution from cloned repos while enabling convenient environment setup for your own projects.
+
 ### Managing Your Project List
 
 ```bash
@@ -434,6 +474,7 @@ Available demos:
 - `error-handling.tape` - Error messages for invalid operations
 - `scan-workflow.tape` - Scanning for git repos, renaming, and removing projects
 - `prompt-integration.tape` - Shell prompt with push/pop stack navigation
+- `env-approval.tape` - Secure .pjmai.sh environment file approval workflow
 
 ## License
 

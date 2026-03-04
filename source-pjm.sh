@@ -2,6 +2,30 @@
 # Shell integration for PJMAI - provides wrapper function and command functions
 # Works with both bash and zsh in interactive and non-interactive modes
 
+# Approval file for trusted .pjmai.sh files (hash:path format)
+_PJMAI_APPROVALS="${PJMAI_CONFIG_DIR:-$HOME/.pjmai}/approved-envs"
+
+# Compute hash of a file (portable across macOS/Linux)
+_pjm_hash() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
+    else
+        # Fallback: use file size + mtime (less secure but works)
+        stat -f "%z:%m" "$1" 2>/dev/null || stat -c "%s:%Y" "$1" 2>/dev/null
+    fi
+}
+
+# Check if .pjmai.sh is approved (hash matches)
+_pjm_is_approved() {
+    local file="$1"
+    local current_hash=$(_pjm_hash "$file")
+    local full_path=$(cd "$(dirname "$file")" && pwd)/$(basename "$file")
+
+    [[ -f "$_PJMAI_APPROVALS" ]] && grep -q "^${current_hash}:${full_path}$" "$_PJMAI_APPROVALS" 2>/dev/null
+}
+
 # Core wrapper that handles exit codes for directory changes and file sourcing
 pjm_fn() {
     PJM_OUT=$(pjmai "$@")
@@ -9,9 +33,15 @@ pjm_fn() {
     case "$PJM_EXIT" in
         2)
             cd "${PJM_OUT}"
-            # Check for .pjmai.sh and warn (don't auto-execute)
+            # Check for .pjmai.sh
             if [[ -f .pjmai.sh ]]; then
-                echo "\033[0;33mFound .pjmai.sh\033[0m - inspect with 'cat .pjmai.sh', run with 'srcpj'"
+                if _pjm_is_approved .pjmai.sh; then
+                    # Approved and unchanged - auto-source
+                    source .pjmai.sh
+                else
+                    # New or changed - warn
+                    echo "\033[0;33mFound .pjmai.sh\033[0m - inspect: 'cat .pjmai.sh', approve: 'srcpj'"
+                fi
             fi
             ;;
         3)
@@ -23,11 +53,26 @@ pjm_fn() {
     esac
 }
 
-# Source .pjmai.sh in current directory (explicit opt-in for project environment)
+# Source .pjmai.sh and approve it (explicit opt-in for project environment)
 srcpj() {
     if [[ -f .pjmai.sh ]]; then
+        local current_hash=$(_pjm_hash .pjmai.sh)
+        local full_path=$(pwd)/.pjmai.sh
+
+        # Source the file
         echo "Sourcing .pjmai.sh..."
         source .pjmai.sh
+
+        # Remove old approval for this path (if any)
+        if [[ -f "$_PJMAI_APPROVALS" ]]; then
+            grep -v ":${full_path}$" "$_PJMAI_APPROVALS" > "${_PJMAI_APPROVALS}.tmp" 2>/dev/null || true
+            mv "${_PJMAI_APPROVALS}.tmp" "$_PJMAI_APPROVALS"
+        fi
+
+        # Add new approval
+        mkdir -p "$(dirname "$_PJMAI_APPROVALS")"
+        echo "${current_hash}:${full_path}" >> "$_PJMAI_APPROVALS"
+        echo "\033[0;32mApproved\033[0m - will auto-source until file changes"
     else
         echo "No .pjmai.sh in current directory"
     fi
