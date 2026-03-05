@@ -255,7 +255,7 @@ Make sure the repository exists and is accessible."
         build_dir="$TEMP_DIR/pjmai"
     fi
 
-    info "Building pjmai (this may take a moment)..."
+    info "Building pjmai-rs (this may take a moment)..."
     cd "$build_dir"
     cargo build --release 2>&1 | grep -E '^(   Compiling|    Finished)' | sed 's/^/    /' || true
 
@@ -271,18 +271,18 @@ Make sure the repository exists and is accessible."
 
 # Install the binary
 install_binary() {
-    info "Installing pjmai to ${INSTALL_PREFIX}..."
+    info "Installing pjmai-rs to ${INSTALL_PREFIX}..."
 
     # Create install directory if it doesn't exist
     mkdir -p "$INSTALL_PREFIX"
 
     # Copy the binary
-    cp "$BINARY_PATH" "$INSTALL_PREFIX/pjmai"
-    chmod +x "$INSTALL_PREFIX/pjmai"
+    cp "$BINARY_PATH" "$INSTALL_PREFIX/pjmai-rs"
+    chmod +x "$INSTALL_PREFIX/pjmai-rs"
 
     # Verify installation
-    if [[ -x "$INSTALL_PREFIX/pjmai" ]]; then
-        success "Binary installed to ${INSTALL_PREFIX}/pjmai"
+    if [[ -x "$INSTALL_PREFIX/pjmai-rs" ]]; then
+        success "Binary installed to ${INSTALL_PREFIX}/pjmai-rs"
     else
         error "Failed to install binary"
     fi
@@ -314,7 +314,7 @@ ensure_path() {
             # Check if already added
             if ! grep -q "$INSTALL_PREFIX" "$RC_FILE" 2>/dev/null; then
                 echo "" >> "$RC_FILE"
-                echo "# Added by pjmai installer" >> "$RC_FILE"
+                echo "# Added by pjmai-rs installer" >> "$RC_FILE"
                 echo "$path_line" >> "$RC_FILE"
                 success "Added to PATH in ${RC_FILE}"
             else
@@ -367,11 +367,11 @@ install_completions() {
         return
     fi
 
-    # Need pjmai in PATH to generate completions
+    # Need pjmai-rs in PATH to generate completions
     export PATH="${INSTALL_PREFIX}:$PATH"
 
-    if ! command -v pjmai &> /dev/null; then
-        warn "pjmai not found in PATH, skipping completions"
+    if ! command -v pjmai-rs &> /dev/null; then
+        warn "pjmai-rs not found in PATH, skipping completions"
         return
     fi
 
@@ -381,8 +381,8 @@ install_completions() {
         zsh)
             local comp_dir="${HOME}/.zsh/completions"
             mkdir -p "$comp_dir"
-            pjmai completions zsh > "$comp_dir/_pjmai"
-            success "Zsh completions installed to ${comp_dir}/_pjmai"
+            pjmai-rs completions zsh > "$comp_dir/_pjmai-rs"
+            success "Zsh completions installed to ${comp_dir}/_pjmai-rs"
 
             # Ensure fpath includes the completions directory
             if ! grep -q ".zsh/completions" "$RC_FILE" 2>/dev/null; then
@@ -395,18 +395,18 @@ install_completions() {
         bash)
             local comp_dir="${HOME}/.local/share/bash-completion/completions"
             mkdir -p "$comp_dir"
-            pjmai completions bash > "$comp_dir/pjmai"
-            success "Bash completions installed to ${comp_dir}/pjmai"
+            pjmai-rs completions bash > "$comp_dir/pjmai-rs"
+            success "Bash completions installed to ${comp_dir}/pjmai-rs"
             ;;
         fish)
             local comp_dir="${HOME}/.config/fish/completions"
             mkdir -p "$comp_dir"
-            pjmai completions fish > "$comp_dir/pjmai.fish"
-            success "Fish completions installed to ${comp_dir}/pjmai.fish"
+            pjmai-rs completions fish > "$comp_dir/pjmai-rs.fish"
+            success "Fish completions installed to ${comp_dir}/pjmai-rs.fish"
             ;;
         *)
             warn "Unknown shell, skipping completions. Generate manually with:
-  pjmai completions <shell>"
+  pjmai-rs completions <shell>"
             ;;
     esac
 }
@@ -417,12 +417,12 @@ verify_installation() {
 
     export PATH="${INSTALL_PREFIX}:$PATH"
 
-    if pjmai --version &> /dev/null; then
+    if pjmai-rs --version &> /dev/null; then
         local version
-        version=$(pjmai --version 2>&1)
+        version=$(pjmai-rs --version 2>&1)
         success "Installation verified: ${version}"
     else
-        error "Installation verification failed. pjmai --version did not succeed."
+        error "Installation verification failed. pjmai-rs --version did not succeed."
     fi
 }
 
@@ -438,12 +438,12 @@ install_prompt() {
 
     # Run setup --prompt and capture output
     local output
-    output=$(pjmai setup --prompt 2>&1)
+    output=$(pjmai-rs setup --prompt 2>&1)
 
     if echo "$output" | grep -q "prompt integration"; then
         success "Prompt integration installed"
     else
-        warn "Prompt integration may have failed. Run 'pjmai setup --prompt' manually."
+        warn "Prompt integration may have failed. Run 'pjmai-rs setup --prompt' manually."
     fi
 }
 
@@ -459,7 +459,7 @@ run_scan() {
     export PATH="${INSTALL_PREFIX}:$PATH"
 
     # Run the scan command (dry-run first to show what was found)
-    if pjmai scan "$SCAN_BASE" --dry-run; then
+    if pjmai-rs scan "$SCAN_BASE" --dry-run; then
         echo ""
         read -p "Add all found projects? [Y/n] " response
         case "$response" in
@@ -467,7 +467,7 @@ run_scan() {
                 info "Skipping project import. You can run 'scpj ${SCAN_BASE}' later."
                 ;;
             *)
-                pjmai scan "$SCAN_BASE" --add-all
+                pjmai-rs scan "$SCAN_BASE" --add-all
                 success "Projects imported!"
                 ;;
         esac
@@ -483,7 +483,7 @@ print_instructions() {
     success "PJMAI-RS installation complete!"
     echo "============================================"
     echo ""
-    echo "To start using pjmai, reload your shell:"
+    echo "To start using pjmai-rs, reload your shell:"
     echo ""
     case "$DETECTED_SHELL" in
         zsh)
@@ -507,7 +507,7 @@ print_instructions() {
     echo "    hlpj                                   # Show all aliases"
     echo ""
     echo "For more information:"
-    echo "    pjmai --help"
+    echo "    pjmai-rs --help"
     echo "    ${REPO_URL}"
     echo ""
 }

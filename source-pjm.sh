@@ -34,7 +34,7 @@ pjm_fn() {
         _PJMAI_ON_EXIT=""
     fi
 
-    PJM_OUT=$(pjmai "$@")
+    PJM_OUT=$(pjmai-rs "$@")
     PJM_EXIT=$?
     case "$PJM_EXIT" in
         2)
@@ -118,7 +118,7 @@ prgp() { pjm_fn group prompt "$@"; }
 
 # Helper to get project names for completion (uses fast native completion)
 _pjm_projects() {
-    pjmai complete projects 2>/dev/null
+    pjmai-rs complete projects 2>/dev/null
 }
 
 # Shell-specific completion setup
@@ -127,7 +127,7 @@ if [ -n "$ZSH_VERSION" ]; then
     _pjm_complete() {
         local projects
         # Use prefix filtering for faster completion with many projects
-        projects=(${(f)"$(pjmai complete projects "${words[CURRENT]}" 2>/dev/null)"})
+        projects=(${(f)"$(pjmai-rs complete projects "${words[CURRENT]}" 2>/dev/null)"})
         _describe 'project' projects
     }
     compdef _pjm_complete chpj rmpj pspj
@@ -135,8 +135,8 @@ elif [ -n "$BASH_VERSION" ]; then
     # Bash completion with prefix filtering
     _pjm_complete() {
         local cur="${COMP_WORDS[COMP_CWORD]}"
-        # Pass prefix directly to pjmai for fast filtering
-        COMPREPLY=($(pjmai complete projects "$cur" 2>/dev/null))
+        # Pass prefix directly to pjmai-rs for fast filtering
+        COMPREPLY=($(pjmai-rs complete projects "$cur" 2>/dev/null))
     }
     complete -F _pjm_complete chpj rmpj pspj
 fi
