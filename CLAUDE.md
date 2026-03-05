@@ -129,6 +129,17 @@ pjmai --json show          # Show current project as JSON
 pjmai --json change -p x   # Change outputs JSON (with error details if not found)
 ```
 
+## Non-Interactive Mode
+
+Use `--yes` or `-y` flag for scripted/automated use (skips all confirmation prompts):
+
+```bash
+pjmai -y list              # Creates config without prompting if needed
+pjmai -y scan ~/code       # Adds all found projects without confirmation
+```
+
+This is essential for VHS tape recordings and shell scripts.
+
 ## Scanning for Projects
 
 Discover git repositories and add them as projects:

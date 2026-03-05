@@ -169,6 +169,7 @@ prpj
 | `--json` | `-j` | Output in JSON format for machine parsing |
 | `--logging` | `-l` | Enable logging (requires `RUST_LOG=info`) |
 | `--debug` | `-d` | Print debug info (config paths, projects) before command |
+| `--yes` | `-y` | Assume yes to all prompts (for scripts/automation) |
 
 ## Scanning for Projects
 
@@ -577,6 +578,29 @@ cargo clippy --all-targets --all-features
 ```bash
 RUST_LOG=info pjmai -l list
 ```
+
+## Non-Interactive Mode
+
+The `--yes` (or `-y`) flag enables non-interactive mode for scripting and automation:
+
+```bash
+# Create config file without prompting
+pjmai -y list
+
+# Scan and add all projects without confirmation
+pjmai -y scan ~/code
+
+# Equivalent to: pjmai scan ~/code --add-all
+```
+
+This is useful for:
+- **Shell scripts**: Automated setup or CI workflows
+- **VHS tape recordings**: Terminal demos that can't handle interactive prompts
+- **Batch operations**: Scripted project management
+
+The flag affects:
+- Config file creation prompt (`Create config file? [Y/n]`)
+- Scan confirmation prompt (`Add all N project(s)? [Y/n]`)
 
 ## Demo Recordings
 
