@@ -9,9 +9,11 @@ edition = "2024"
 
 [build-dependencies]
 chrono = "0.4"
+hostname = "0.4"
 
 [dependencies]
 chrono = "0.4"
+const_format = "0.2"
 colored = "2"
 env_logger = "0.11"
 log = "0.4"

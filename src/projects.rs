@@ -1,3 +1,4 @@
+use crate::args::VERSION;
 use crate::error::{PjmError, Result};
 use crate::{ProjectName, ProjectPath, SerializedRegistry};
 use chrono;
@@ -5,8 +6,6 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-
-include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 /// The project registry
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -104,7 +103,7 @@ impl ProjectsRegistry {
     /// Create a new Registry with zero projects
     pub fn new() -> Self {
         ProjectsRegistry {
-            version: generated_version().to_string(),
+            version: format!("pjmai-{}", VERSION),
             ..Default::default()
         }
     }
