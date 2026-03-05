@@ -1759,3 +1759,386 @@ file_or_dir = "{}"
     assert!(config.contains("node_modules/.bin"));
     assert!(config.contains("deactivate"));
 }
+
+// ============================================================================
+// Group Tests
+// ============================================================================
+
+#[test]
+fn test_group_list_empty() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["group", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No groups found"));
+}
+
+#[test]
+fn test_group_list_with_projects() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("github/myorg");
+    let project_dir = parent_dir.join("project1");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj1"
+[[project]]
+name = "proj1"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["group", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("myorg"))
+        .stdout(predicate::str::contains("1")); // project count
+}
+
+#[test]
+fn test_group_list_json() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("github/testgroup");
+    let project_dir = parent_dir.join("testproj");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "testproj"
+[[project]]
+name = "testproj"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "group", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"name\": \"testgroup\""))
+        .stdout(predicate::str::contains("\"project_count\": 1"))
+        .stdout(predicate::str::contains("\"is_current\": true"));
+}
+
+#[test]
+fn test_group_show_current() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("code/work");
+    let project_dir = parent_dir.join("webapp");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "webapp"
+[[project]]
+name = "webapp"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["group", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Group: work"))
+        .stdout(predicate::str::contains("Projects: 1"));
+}
+
+#[test]
+fn test_group_show_with_all_flag() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("repos/mygroup");
+    let proj1 = parent_dir.join("proj1");
+    let proj2 = parent_dir.join("proj2");
+    fs::create_dir_all(&proj1).unwrap();
+    fs::create_dir_all(&proj2).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj1"
+[[project]]
+name = "proj1"
+[project.action]
+file_or_dir = "{}"
+[[project]]
+name = "proj2"
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj1.display(),
+            proj2.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["group", "show", "--all"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Group: mygroup"))
+        .stdout(predicate::str::contains("proj1"))
+        .stdout(predicate::str::contains("proj2"));
+}
+
+#[test]
+fn test_group_prompt() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("code/mygroup");
+    let project_dir = parent_dir.join("proj");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj"
+[[project]]
+name = "proj"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["group", "prompt"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("mygroup"));
+}
+
+#[test]
+fn test_group_alias_set_and_list() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("repos/longname");
+    let project_dir = parent_dir.join("proj");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj"
+[[project]]
+name = "proj"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Set alias
+    pjmai_cmd(&temp_dir)
+        .args(["group", "alias", "longname", "short"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Set alias 'short' for group 'longname'"));
+
+    // List aliases
+    pjmai_cmd(&temp_dir)
+        .args(["group", "alias", "--list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("longname"))
+        .stdout(predicate::str::contains("short"));
+
+    // Verify alias is in config
+    let config = read_config(&temp_dir);
+    assert!(config.contains("[group_aliases]"));
+    assert!(config.contains("longname = \"short\""));
+}
+
+#[test]
+fn test_group_alias_remove() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("repos/testgroup");
+    let project_dir = parent_dir.join("proj");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj"
+[group_aliases]
+testgroup = "tg"
+[[project]]
+name = "proj"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Remove alias
+    pjmai_cmd(&temp_dir)
+        .args(["group", "alias", "testgroup", "--remove"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Removed alias for group 'testgroup'"));
+
+    // Verify alias is removed from config
+    let config = read_config(&temp_dir);
+    assert!(!config.contains("testgroup = \"tg\""));
+}
+
+#[test]
+fn test_group_prompt_with_alias() {
+    let temp_dir = TempDir::new().unwrap();
+    let parent_dir = temp_dir.path().join("repos/longgroup");
+    let project_dir = parent_dir.join("proj");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj"
+[group_aliases]
+longgroup = "lg"
+[[project]]
+name = "proj"
+[project.action]
+file_or_dir = "{}"
+"#,
+            project_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Without --alias flag, shows group name
+    pjmai_cmd(&temp_dir)
+        .args(["group", "prompt"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("longgroup"));
+
+    // With --alias flag, shows alias
+    pjmai_cmd(&temp_dir)
+        .args(["group", "prompt", "--alias"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lg"));
+}
+
+#[test]
+fn test_list_with_group_filter() {
+    let temp_dir = TempDir::new().unwrap();
+    let group1 = temp_dir.path().join("repos/group1");
+    let group2 = temp_dir.path().join("repos/group2");
+    let proj1 = group1.join("proj1");
+    let proj2 = group2.join("proj2");
+    fs::create_dir_all(&proj1).unwrap();
+    fs::create_dir_all(&proj2).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj1"
+[[project]]
+name = "proj1"
+[project.action]
+file_or_dir = "{}"
+[[project]]
+name = "proj2"
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj1.display(),
+            proj2.display()
+        ),
+    )
+    .unwrap();
+
+    // Filter by group1
+    pjmai_cmd(&temp_dir)
+        .args(["list", "--group", "group1"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("proj1"))
+        .stdout(predicate::str::contains("group1").not().or(predicate::str::contains("Projects in group")));
+
+    // Verify proj2 is not in output when filtering by group1
+    let output = pjmai_cmd(&temp_dir)
+        .args(["list", "--group", "group1"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("proj1"));
+    // proj2 should not appear in the project list (it may appear in header)
+}
+
+#[test]
+fn test_list_with_group_filter_current() {
+    let temp_dir = TempDir::new().unwrap();
+    let group1 = temp_dir.path().join("repos/mygroup");
+    let proj1 = group1.join("proj1");
+    let proj2 = group1.join("proj2");
+    fs::create_dir_all(&proj1).unwrap();
+    fs::create_dir_all(&proj2).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "proj1"
+[[project]]
+name = "proj1"
+[project.action]
+file_or_dir = "{}"
+[[project]]
+name = "proj2"
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj1.display(),
+            proj2.display()
+        ),
+    )
+    .unwrap();
+
+    // Filter by "." (current group)
+    pjmai_cmd(&temp_dir)
+        .args(["list", "--group", "."])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("proj1"))
+        .stdout(predicate::str::contains("proj2"))
+        .stdout(predicate::str::contains("mygroup"));
+}

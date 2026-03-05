@@ -111,6 +111,11 @@ rmpj() { pjm_fn remove --project "$@"; }
 scpj() { pjm_fn scan "$@"; }
 shpj() { pjm_fn show "$@"; }
 
+# Group command functions
+lsgp() { pjm_fn group list "$@"; }
+shgp() { pjm_fn group show "$@"; }
+prgp() { pjm_fn group prompt "$@"; }
+
 # Helper to get project names for completion (uses fast native completion)
 _pjm_projects() {
     pjmai complete projects 2>/dev/null

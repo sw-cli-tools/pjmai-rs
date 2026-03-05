@@ -5,6 +5,7 @@ use crate::output::{
     ListOutput, MetaOutput, NoteEntry, NotesOutput, ProjectOutput, PromptOutput, PushPopOutput,
     SetupAction, SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
 };
+// Note: Group output types (GroupListOutput, GroupShowOutput, etc.) accessed via output:: prefix
 use crate::projects;
 use crate::util;
 use clap::CommandFactory;
@@ -158,6 +159,21 @@ pub fn aliases(json: bool) {
                 command: "source .pjmai.sh".to_string(),
                 description: "Source project env file (explicit opt-in)".to_string(),
             },
+            AliasOutput {
+                alias: "lsgp".to_string(),
+                command: "pjmai group list".to_string(),
+                description: "List all groups".to_string(),
+            },
+            AliasOutput {
+                alias: "shgp".to_string(),
+                command: "pjmai group show".to_string(),
+                description: "Show current group details".to_string(),
+            },
+            AliasOutput {
+                alias: "prgp".to_string(),
+                command: "pjmai group prompt".to_string(),
+                description: "Get current group name for prompt".to_string(),
+            },
         ];
         output::print_json(&AliasesOutput { aliases });
     } else {
@@ -175,6 +191,11 @@ pub fn aliases(json: bool) {
         println!("scpj [dir]                # alias for pjmai scan");
         println!("shpj                      # alias for pjmai show");
         println!("srcpj                     # source .pjmai.sh (opt-in env)");
+        println!();
+        println!("{}", "Group aliases:".bold());
+        println!("lsgp                      # alias for pjmai group list");
+        println!("shgp [name]               # alias for pjmai group show");
+        println!("prgp                      # alias for pjmai group prompt");
     }
 
     info!("aliases done");
@@ -374,7 +395,8 @@ pub fn list(
     let filtered_projects: Vec<&projects::ChangeToProject> = if let Some(ref tag) = tag_filter {
         registry.projects_with_tag(tag)
     } else if let Some(ref group) = group_filter {
-        registry.projects_in_group(group)
+        // Support "." for current group, aliases, and group names
+        registry.projects_in_inferred_group(group)
     } else if sort_recent {
         registry.projects_by_recency()
     } else {
@@ -413,7 +435,19 @@ pub fn list(
         if let Some(ref tag) = tag_filter {
             println!("{}", format!("Projects with tag '{}':", tag).cyan());
         } else if let Some(ref group) = group_filter {
-            println!("{}", format!("Projects in group '{}':", group).cyan());
+            // Resolve "." to actual group name for display
+            let display_group = if group == "." {
+                registry
+                    .get_current_group()
+                    .map(|g| g.name)
+                    .unwrap_or_else(|| ".".to_string())
+            } else {
+                registry
+                    .find_group(group)
+                    .map(|g| g.name)
+                    .unwrap_or_else(|| group.clone())
+            };
+            println!("{}", format!("Projects in group '{}':", display_group).cyan());
         } else if sort_recent {
             println!("{}", "Projects by recently used:".cyan());
         }
@@ -3195,4 +3229,314 @@ fn generate_env_setup(project: &projects::ChangeToProject, file_path: &str) -> O
     }
 
     Some(script)
+}
+
+/// List all groups
+pub fn group_list(all: bool, json: bool) -> Result<()> {
+    info!("group list (all={})", all);
+    let registry = util::projects()?;
+
+    let groups = registry.get_inferred_groups();
+    let current_group = registry.get_current_group();
+    let current_group_name = current_group.as_ref().map(|g| g.name.clone());
+
+    if json {
+        let summaries: Vec<output::GroupSummary> = groups
+            .iter()
+            .map(|g| output::GroupSummary {
+                name: g.name.clone(),
+                alias: g.alias.clone(),
+                path: g.path.clone(),
+                project_count: g.projects.len(),
+                is_current: Some(&g.name) == current_group_name.as_ref(),
+                projects: if all { g.projects.clone() } else { Vec::new() },
+            })
+            .collect();
+
+        output::print_json(&output::GroupListOutput {
+            groups: summaries,
+            current_group: current_group_name,
+            total: groups.len(),
+        });
+    } else {
+        if groups.is_empty() {
+            println!("No groups found. Add projects to see inferred groups.");
+            return Ok(());
+        }
+
+        // Print header
+        println!(
+            "{:<20} {:<12} {:>8}   {}",
+            "GROUP".bold(),
+            "ALIAS".bold(),
+            "PROJECTS".bold(),
+            "PATH".bold()
+        );
+
+        for group in &groups {
+            let is_current = Some(&group.name) == current_group_name.as_ref();
+            let marker = if is_current { ">" } else { " " };
+            let alias_str = group.alias.clone().unwrap_or_default();
+            let path_display = util::shorten_path(&group.path);
+
+            let line = format!(
+                "{} {:<18} {:<12} {:>8}   {}",
+                marker,
+                group.name,
+                alias_str,
+                group.projects.len(),
+                path_display
+            );
+
+            if is_current {
+                println!("{}", line.cyan());
+            } else {
+                println!("{}", line);
+            }
+
+            // If --all, show projects under each group
+            if all {
+                for project_name in &group.projects {
+                    let is_current_project = project_name == &registry.current_project;
+                    let proj_marker = if is_current_project { ">" } else { " " };
+                    let proj_line = format!("   {} {}", proj_marker, project_name);
+                    if is_current_project {
+                        println!("{}", proj_line.green());
+                    } else {
+                        println!("{}", proj_line.dimmed());
+                    }
+                }
+            }
+        }
+
+        println!();
+        println!("{} groups", groups.len());
+    }
+
+    Ok(())
+}
+
+/// Show details of a specific group
+pub fn group_show(name: Option<String>, all: bool, json: bool) -> Result<()> {
+    info!("group show {:?} (all={})", name, all);
+    let registry = util::projects()?;
+
+    // Resolve the group: use provided name, or current group
+    let group = match name {
+        Some(n) => {
+            // "." means current group
+            if n == "." {
+                registry.get_current_group()
+            } else {
+                registry.find_group(&n)
+            }
+        }
+        None => registry.get_current_group(),
+    };
+
+    let group = match group {
+        Some(g) => g,
+        None => {
+            if json {
+                output::print_json(&output::ErrorOutput {
+                    code: "NO_GROUP".to_string(),
+                    message: "No current group (no project selected or project has no group)"
+                        .to_string(),
+                    similar_projects: None,
+                    hint: Some("Switch to a project with 'chpj' first".to_string()),
+                });
+            } else {
+                println!("{}", "No current group".red());
+                println!("{}", "Switch to a project with 'chpj' first".dimmed());
+            }
+            return Ok(());
+        }
+    };
+
+    if json {
+        output::print_json(&output::GroupShowOutput {
+            name: group.name.clone(),
+            alias: group.alias.clone(),
+            path: group.path.clone(),
+            project_count: group.projects.len(),
+            projects: if all { group.projects.clone() } else { Vec::new() },
+        });
+    } else {
+        println!("{}: {}", "Group".bold(), group.name);
+        if let Some(ref alias) = group.alias {
+            println!("{}: {}", "Alias".bold(), alias);
+        }
+        let path_display = util::shorten_path(&group.path);
+        println!("{}: {}", "Path".bold(), path_display);
+        println!("{}: {}", "Projects".bold(), group.projects.len());
+
+        if all {
+            println!();
+            for project_name in &group.projects {
+                let is_current = project_name == &registry.current_project;
+                let marker = if is_current { ">" } else { " " };
+
+                // Get project path
+                let path_str = registry
+                    .find_project(project_name)
+                    .map(|p| util::shorten_path(&p.action.file_or_dir))
+                    .unwrap_or_default();
+
+                let line = format!("{} {:<20} {}", marker, project_name, path_str);
+                if is_current {
+                    println!("{}", line.green());
+                } else {
+                    println!("{}", line);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Print group name for shell prompt
+pub fn group_prompt(use_alias: bool, json: bool) -> Result<()> {
+    info!("group prompt (alias={})", use_alias);
+    let registry = util::projects()?;
+
+    let current_group = registry.get_current_group();
+
+    if json {
+        let name = current_group
+            .map(|g| {
+                if use_alias {
+                    g.alias.unwrap_or(g.name)
+                } else {
+                    g.name
+                }
+            })
+            .unwrap_or_default();
+
+        output::print_json(&output::GroupPromptOutput { name });
+    } else {
+        // For prompt, just print the name (or nothing)
+        if let Some(group) = current_group {
+            let name = if use_alias {
+                group.alias.unwrap_or(group.name)
+            } else {
+                group.name
+            };
+            print!("{}", name);
+        }
+        // No output if no current group (for shell prompt integration)
+    }
+
+    Ok(())
+}
+
+/// Manage group aliases
+pub fn group_alias(
+    group: Option<String>,
+    alias: Option<String>,
+    remove: bool,
+    list: bool,
+    json: bool,
+) -> Result<()> {
+    info!(
+        "group alias group={:?} alias={:?} remove={} list={}",
+        group, alias, remove, list
+    );
+
+    let mut registry = util::projects()?;
+
+    // List all aliases
+    if list {
+        if json {
+            output::print_json(&output::GroupAliasListOutput {
+                aliases: registry.group_aliases.clone(),
+            });
+        } else if registry.group_aliases.is_empty() {
+            println!("No group aliases defined.");
+        } else {
+            println!("{}", "Group aliases:".bold());
+            let mut pairs: Vec<_> = registry.group_aliases.iter().collect();
+            pairs.sort_by(|a, b| a.0.cmp(b.0));
+            for (group_name, alias_name) in pairs {
+                println!("  {} → {}", group_name, alias_name.green());
+            }
+        }
+        return Ok(());
+    }
+
+    // Need group name for add/remove operations
+    let group_name = match group {
+        Some(g) => {
+            // Resolve "." to current group
+            if g == "." {
+                registry
+                    .get_current_group()
+                    .map(|cg| cg.name)
+                    .ok_or_else(|| PjmError::InvalidFormat("No current group".to_string()))?
+            } else {
+                // Verify the group exists
+                let resolved = registry.resolve_group_name(&g);
+                resolved.ok_or_else(|| {
+                    PjmError::InvalidFormat(format!("Group '{}' not found", g))
+                })?
+            }
+        }
+        None => {
+            return Err(PjmError::InvalidFormat(
+                "Group name required. Use --list to see all aliases.".to_string(),
+            ));
+        }
+    };
+
+    // Remove alias
+    if remove {
+        let existed = registry.group_aliases.remove(&group_name).is_some();
+        util::save_config_toml(&registry.ser()?)?;
+
+        if json {
+            output::print_json(&output::GroupAliasOutput {
+                success: existed,
+                operation: "remove".to_string(),
+                group: Some(group_name.clone()),
+                alias: None,
+            });
+        } else if existed {
+            println!("Removed alias for group '{}'", group_name);
+        } else {
+            println!("No alias exists for group '{}'", group_name);
+        }
+        return Ok(());
+    }
+
+    // Set alias
+    let alias_name = match alias {
+        Some(a) => a,
+        None => {
+            return Err(PjmError::InvalidFormat(
+                "Alias name required. Usage: pjmai group alias <group> <alias>".to_string(),
+            ));
+        }
+    };
+
+    registry
+        .group_aliases
+        .insert(group_name.clone(), alias_name.clone());
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&output::GroupAliasOutput {
+            success: true,
+            operation: "set".to_string(),
+            group: Some(group_name.clone()),
+            alias: Some(alias_name.clone()),
+        });
+    } else {
+        println!(
+            "Set alias '{}' for group '{}'",
+            alias_name.green(),
+            group_name
+        );
+    }
+
+    Ok(())
 }

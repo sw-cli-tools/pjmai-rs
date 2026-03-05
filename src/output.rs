@@ -343,6 +343,82 @@ pub struct DetectedConfig {
     pub on_exit: Vec<String>,
 }
 
+/// JSON output for group list command
+#[derive(Debug, Serialize)]
+pub struct GroupListOutput {
+    /// All groups
+    pub groups: Vec<GroupSummary>,
+    /// Current group name (if any)
+    pub current_group: Option<String>,
+    /// Total number of groups
+    pub total: usize,
+}
+
+/// Summary of a group
+#[derive(Debug, Serialize)]
+pub struct GroupSummary {
+    /// Group name (parent directory name)
+    pub name: String,
+    /// Optional alias for the group
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    /// Path to the group directory
+    pub path: String,
+    /// Number of projects in this group
+    pub project_count: usize,
+    /// Whether this is the current group
+    pub is_current: bool,
+    /// Project names (only included if all=true)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub projects: Vec<String>,
+}
+
+/// JSON output for group show command
+#[derive(Debug, Serialize)]
+pub struct GroupShowOutput {
+    /// Group name
+    pub name: String,
+    /// Optional alias
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    /// Path to the group directory
+    pub path: String,
+    /// Number of projects
+    pub project_count: usize,
+    /// Project names (only included if all=true)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub projects: Vec<String>,
+}
+
+/// JSON output for group prompt command
+#[derive(Debug, Serialize)]
+pub struct GroupPromptOutput {
+    /// Group name (or alias if --alias flag used)
+    pub name: String,
+}
+
+/// JSON output for group alias command
+#[derive(Debug, Serialize)]
+pub struct GroupAliasOutput {
+    /// Success indicator
+    pub success: bool,
+    /// Operation performed
+    pub operation: String,
+    /// Group name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// Alias name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+}
+
+/// JSON output for listing group aliases
+#[derive(Debug, Serialize)]
+pub struct GroupAliasListOutput {
+    /// All group aliases (group_name -> alias)
+    pub aliases: HashMap<String, String>,
+}
+
 /// Determine if a path points to a directory or file
 pub fn path_type(path: &str) -> String {
     let expanded = util::expand_file_path(path);

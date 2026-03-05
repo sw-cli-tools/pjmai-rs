@@ -30,6 +30,12 @@ A complete guide to managing your development projects with PJMAI-RS.
 - [Shell Prompt Integration](#shell-prompt-integration)
 - [JSON Output Mode](#json-output-mode)
 - [Shell Aliases Reference](#shell-aliases-reference)
+- [Project Groups](#project-groups)
+  - [Listing Groups](#listing-groups)
+  - [Showing Group Details](#showing-group-details)
+  - [Group Prompt](#group-prompt)
+  - [Group Aliases](#group-aliases)
+  - [Filtering by Group](#filtering-by-group)
 
 ---
 
@@ -598,6 +604,128 @@ After installing PJMAI, you get these short aliases:
 | `scpj` | `pjmai scan` | Scan for git repos |
 | `shpj` | `pjmai show` | Show current project |
 | `srcpj` | (shell function) | Source and approve `.pjmai.sh` |
+
+**Group aliases:**
+
+| Alias | Command | Description |
+|-------|---------|-------------|
+| `lsgp` | `pjmai group list` | List all groups |
+| `shgp` | `pjmai group show` | Show current group details |
+| `prgp` | `pjmai group prompt` | Get current group for prompt |
+
+---
+
+## Project Groups
+
+Groups are **automatically inferred** from your project directory structure. The parent directory of each project becomes its group.
+
+```
+~/github/
+├── sw-cli-tools/        ← group "sw-cli-tools"
+│   ├── pjmai-rs/
+│   └── other-tool/
+├── softwarewrighter/    ← group "softwarewrighter"
+│   └── webapp/
+└── personal/            ← group "personal"
+    └── dotfiles/
+```
+
+### Listing Groups
+
+**Alias:** `lsgp`
+**Full command:** `pjmai group list`
+
+```bash
+# List all groups
+lsgp
+
+# Output:
+# GROUP              ALIAS     PROJECTS   PATH
+# > sw-cli-tools     cli       2          ~/github/sw-cli-tools
+#   softwarewrighter work      1          ~/github/softwarewrighter
+#   personal                   1          ~/github/personal
+
+# Show groups with their projects
+lsgp --all
+```
+
+The `>` marker shows your current group (based on current project).
+
+### Showing Group Details
+
+**Alias:** `shgp`
+**Full command:** `pjmai group show`
+
+```bash
+# Show current group
+shgp
+
+# Output:
+# Group: sw-cli-tools
+# Alias: cli
+# Path: ~/github/sw-cli-tools
+# Projects: 2
+
+# Show a specific group
+shgp personal
+
+# Show group with project list
+shgp --all
+```
+
+### Group Prompt
+
+**Alias:** `prgp`
+**Full command:** `pjmai group prompt`
+
+Print group name for shell prompt integration:
+
+```bash
+# Get current group name
+prgp
+
+# Get alias instead (if set)
+prgp --alias
+```
+
+**Shell prompt integration:**
+```bash
+PROMPT='[$(prpj):$(prgp)] %~ $ '
+# Result: [pjmai-rs:cli] ~/github/sw-cli-tools/pjmai-rs $
+```
+
+### Group Aliases
+
+Give friendly names to inferred groups:
+
+```bash
+# Set an alias
+pjmai group alias sw-cli-tools cli
+pjmai group alias softwarewrighter work
+pjmai group alias personal home
+
+# List all aliases
+pjmai group alias --list
+
+# Remove an alias
+pjmai group alias sw-cli-tools --remove
+
+# Alias current group (use "." for current)
+pjmai group alias . myalias
+```
+
+### Filtering by Group
+
+Filter project listings by group:
+
+```bash
+# Filter by group name
+lspj --group cli
+lspj --group sw-cli-tools  # same result if "cli" is alias
+
+# Filter by current group
+lspj --group .
+```
 
 ---
 

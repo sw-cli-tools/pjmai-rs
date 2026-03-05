@@ -104,6 +104,19 @@ fn run() -> Result<()> {
         } => command::setup(*shell, *shell_only, *completions_only, *prompt, json)?,
         args::Subcommands::Show {} => command::show(json)?,
         args::Subcommands::Tag { project, action } => command::tag(project, action, json)?,
+        args::Subcommands::Group { action } => match action {
+            args::GroupAction::List { all } => command::group_list(*all, json)?,
+            args::GroupAction::Show { name, all } => {
+                command::group_show(name.clone(), *all, json)?
+            }
+            args::GroupAction::Prompt { alias } => command::group_prompt(*alias, json)?,
+            args::GroupAction::Alias {
+                group,
+                alias,
+                remove,
+                list,
+            } => command::group_alias(group.clone(), alias.clone(), *remove, *list, json)?,
+        },
     }
     info!(target:"pjmai_rs::main", "finished");
     Ok(())

@@ -268,6 +268,14 @@ pub enum Subcommands {
         #[arg(long)]
         add_all: bool,
     },
+
+    /// Manage project groups (inferred from directory structure)
+    #[command(name = "group")]
+    Group {
+        /// Group operation
+        #[command(subcommand)]
+        action: GroupAction,
+    },
 }
 
 /// Completion targets for the `complete` subcommand
@@ -444,6 +452,55 @@ pub enum EnvAction {
         /// Show what would be configured without making changes
         #[arg(long)]
         dry_run: bool,
+    },
+}
+
+/// Actions for the `group` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum GroupAction {
+    /// List all groups; alias lsgp
+    #[command(name = "list")]
+    List {
+        /// Show projects in each group
+        #[arg(long)]
+        all: bool,
+    },
+
+    /// Show group details; alias shgp
+    #[command(name = "show")]
+    Show {
+        /// Group name or alias (defaults to current group)
+        name: Option<String>,
+
+        /// Show projects in the group
+        #[arg(long)]
+        all: bool,
+    },
+
+    /// Print group name for shell prompt; alias prgp
+    #[command(name = "prompt")]
+    Prompt {
+        /// Print alias instead of name (if alias exists)
+        #[arg(long)]
+        alias: bool,
+    },
+
+    /// Manage group aliases
+    #[command(name = "alias")]
+    Alias {
+        /// Group name to alias
+        group: Option<String>,
+
+        /// Alias to assign
+        alias: Option<String>,
+
+        /// Remove alias for the group
+        #[arg(long)]
+        remove: bool,
+
+        /// List all aliases
+        #[arg(long)]
+        list: bool,
     },
 }
 
