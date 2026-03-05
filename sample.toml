@@ -1,19 +1,19 @@
 version = "pjmai-0.1.0"
 
 [[project]]
-name = "rtt1"
+name = "webapp"
 
 [project.action]
-file_or_dir = "~/github/wrightmikea/rtt1"
+file_or_dir = "~/code/webapp"
 
 [[project]]
-name = "pjmai"
+name = "pjmai-rs"
 
 [project.action]
-file_or_dir = "~/github/sw-cli-tools/pjmai-rs/.pjmairc"
+file_or_dir = "~/github/sw-cli-tools/pjmai-rs"
 
 [[project]]
-name = "mr"
+name = "api"
 
 [project.action]
-file_or_dir = "/home/mike/github/wrightmikea/mono-rust/"
+file_or_dir = "~/code/api"

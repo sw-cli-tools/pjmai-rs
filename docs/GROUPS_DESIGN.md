@@ -11,14 +11,14 @@
 │   └── project2/
 ├── sw-cli-tools/        ← group "sw-cli-tools" (inferred)
 │   └── pjmai-rs/
-└── wrightmikea/         ← group "wrightmikea" (inferred)
+└── personal/         ← group "personal" (inferred)
     └── dotfiles/
 ```
 
 **Group aliases** are the only manual part - you can give friendly names to inferred groups:
 - `softwarewrighter` → alias `work`
 - `sw-cli-tools` → alias `cli`
-- `wrightmikea` → alias `personal`
+- `personal` → alias `home`
 
 ---
 
@@ -65,7 +65,7 @@ $ lsgp
 GROUP             PROJECTS  PATH
 > sw-cli-tools    3         ~/github/sw-cli-tools
   softwarewrighter 5        ~/github/softwarewrighter
-  wrightmikea     2         ~/github/wrightmikea
+  personal     2         ~/github/personal
   mighty          4         ~/code/mighty
 
 # With aliases shown
@@ -73,7 +73,7 @@ $ lsgp --aliases
 GROUP              ALIAS     PROJECTS  PATH
 > sw-cli-tools     cli       3         ~/github/sw-cli-tools
   softwarewrighter work      5         ~/github/softwarewrighter
-  wrightmikea      personal  2         ~/github/wrightmikea
+  personal      home  2         ~/github/personal
   mighty           proto     4         ~/code/mighty
 ```
 
@@ -132,7 +132,7 @@ Manage group aliases:
 # Add alias
 pjmai group alias sw-cli-tools cli
 pjmai group alias softwarewrighter work
-pjmai group alias wrightmikea personal
+pjmai group alias personal home
 pjmai group alias mighty proto
 
 # List aliases
@@ -180,7 +180,7 @@ current_project = "pjmai-rs"
 [group_aliases]
 sw-cli-tools = "cli"
 softwarewrighter = "work"
-wrightmikea = "personal"
+personal = "home"
 mighty = "proto"
 
 # Projects (unchanged)
@@ -315,19 +315,19 @@ adpj myproj -f /some/weird/path --group work
 # Add some projects (groups inferred automatically)
 adpj pjmai -f ~/github/sw-cli-tools/pjmai-rs
 adpj assist -f ~/github/softwarewrighter/assist
-adpj dotfiles -f ~/github/wrightmikea/dotfiles
+adpj dotfiles -f ~/github/personal/dotfiles
 
 # See all groups
 $ lsgp
 GROUP              PROJECTS  PATH
   sw-cli-tools     1         ~/github/sw-cli-tools
   softwarewrighter 1         ~/github/softwarewrighter
-  wrightmikea      1         ~/github/wrightmikea
+  personal      1         ~/github/personal
 
 # Add friendly aliases
 pjmai group alias sw-cli-tools cli
 pjmai group alias softwarewrighter work
-pjmai group alias wrightmikea personal
+pjmai group alias personal home
 
 # Switch to a project
 chpj pjmai

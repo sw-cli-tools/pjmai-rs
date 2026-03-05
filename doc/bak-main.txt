@@ -1,12 +1,12 @@
     if args.len() == 1 {
-        println!("emacs pjmai rtt1");
+        println!("webapp api pjmai-rs");
         process::exit(0);
     } else {
         match args[1].as_ref() {
-            "emacs" => println!("/home/mike/.emacs.d/mw-emacs"),
-            "pjmai" => println!("/home/mike/github/sw-cli-tools/pjmai-rs"),
-            "rtt1" => println!("/home/mike/github/wrightmikea/rtt1"),
-            _ => println!("/home/mike"),
+            "webapp" => println!("/home/user/code/webapp"),
+            "pjmai-rs" => println!("/home/user/github/sw-cli-tools/pjmai-rs"),
+            "api" => println!("/home/user/code/api"),
+            _ => println!("/home/user"),
         }
         process::exit(2)
     }

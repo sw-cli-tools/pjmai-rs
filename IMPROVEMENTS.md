@@ -760,8 +760,8 @@ $ lspj --group work
 
 $ lspj --group oss
 [oss]
-  pjmai       ~/github/sw-cli-tools/pjmai-rs
-  rtt1       ~/github/wrightmikea/rtt1
+  pjmai-rs    ~/github/sw-cli-tools/pjmai-rs
+  mylib       ~/github/myuser/mylib
 
 # Switch to a random project in group (for variety)
 $ chpj --random --group oss
@@ -773,7 +773,7 @@ $ chpj --random --group oss
 # Auto-detect groups from path patterns
 $ pjmai auto-group
 Detected groups:
-  github/wrightmikea (3 projects)
+  github/myuser (3 projects)
   github/work-org (5 projects)
   code/personal (2 projects)
 
@@ -874,7 +874,7 @@ Found 12 potential projects:
   ~/code/webapp           (Python, Django, has .env)
   ~/code/api              (Rust, Cargo.toml found)
   ~/code/frontend         (Node, package.json found)
-  ~/github/wrightmikea/*  (4 Rust projects)
+  ~/github/myuser/*       (4 Rust projects)
 
 Add all discovered projects? [Y/n/select]
 ```
