@@ -10,6 +10,12 @@ use pjmai_rs::error::Result;
 
 /// Run the application and return a Result
 fn run() -> Result<()> {
+    // Handle -V/--version before clap parsing (custom output)
+    if std::env::args().any(|a| a == "-V" || a == "--version") {
+        args::print_version();
+        return Ok(());
+    }
+
     // Parse args early to handle completions before config init
     let parsed_args = args::parse_args();
 

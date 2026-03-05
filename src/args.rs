@@ -1,7 +1,6 @@
 use crate::{ProjectName, ProjectPath};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{Shell, generate};
-use const_format::formatcp;
 use log::info;
 use std::io;
 
@@ -20,19 +19,15 @@ const BUILD_HOST: &str = env!("BUILD_HOST");
 /// Repository URL
 const REPO: &str = "https://github.com/sw-cli-tools/pjmai-rs";
 
-/// Full version string for --version
-const LONG_VERSION: &str = formatcp!(
-    "{}\n\nCopyright (c) 2025 Michael A Wright\nLicense: MIT\nRepository: {}\n\nBuild Information:\n  Commit: {}\n  Built: {}\n  Host: {}",
-    VERSION,
-    REPO,
-    BUILD_COMMIT,
-    BUILD_TIME,
-    BUILD_HOST
-);
-
-/// For backwards compatibility
-pub fn generated_version() -> &'static str {
-    LONG_VERSION
+/// Print version info to stdout (called when -V or --version is passed)
+pub fn print_version() {
+    println!("{} {}", env!("CARGO_PKG_NAME"), VERSION);
+    println!("Copyright: Michael A Wright <wrightmikea@gmail.com>");
+    println!("License: MIT");
+    println!("Repository: {}", REPO);
+    println!("Build Commit: {}", BUILD_COMMIT);
+    println!("Build Time: {}", BUILD_TIME);
+    println!("Build Host: {}", BUILD_HOST);
 }
 
 /// Project Management Tool (AI enhanced) - manage and switch between projects
@@ -44,7 +39,7 @@ pub fn generated_version() -> &'static str {
 ///  rmpj --help
 ///  shpj --help
 #[derive(Debug, PartialEq, Parser)]
-#[command(version = VERSION, long_version = LONG_VERSION)]
+#[command(version = VERSION)]
 pub struct Args {
     /// Prints debugging info. -d must precede subcommands
     #[arg(long, short)]

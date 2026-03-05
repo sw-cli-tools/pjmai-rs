@@ -48,11 +48,7 @@ fn print_debug_info(pjm_config: &PjmConfig) {
     eprintln!("{}", "=== PJMAI Debug Info ===".cyan().bold());
 
     // Version
-    eprintln!(
-        "{}: {}",
-        "Version".cyan(),
-        crate::args::generated_version()
-    );
+    eprintln!("{}: {}", "Version".cyan(), crate::args::VERSION);
 
     // Environment
     eprintln!("{}", "\n--- Environment ---".cyan());
