@@ -15,8 +15,11 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 ///  rmpj --help
 ///  shpj --help
 #[derive(Debug, PartialEq, Parser)]
-#[command(version = generated_version())]
+#[command(version = generated_version(), disable_version_flag = true)]
 pub struct Args {
+    /// Print version information
+    #[arg(short = 'v', short_alias = 'V', long, action = clap::ArgAction::Version)]
+    pub version: (),
     /// Prints debugging info. -d must precede subcommands
     #[arg(long, short)]
     pub debug: bool,
@@ -542,6 +545,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "add", "-p", "pjmai", "-f", "~/gh/wma/pjmai"]).unwrap()
         );
@@ -563,6 +567,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "a", "-p", "myproject", "-f", "/tmp/project"]).unwrap()
         );
@@ -579,6 +584,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "change", "-p", "myproject"]).unwrap()
         );
@@ -595,6 +601,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "c", "-p", "foo"]).unwrap()
         );
@@ -613,6 +620,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "list"]).unwrap()
         );
@@ -631,6 +639,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "l"]).unwrap()
         );
@@ -647,6 +656,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "remove", "-p", "oldproject"]).unwrap()
         );
@@ -663,6 +673,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "r", "-p", "bar"]).unwrap()
         );
@@ -677,6 +688,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "show"]).unwrap()
         );
@@ -691,6 +703,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "s"]).unwrap()
         );
@@ -705,6 +718,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "prompt"]).unwrap()
         );
@@ -719,6 +733,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "p"]).unwrap()
         );
@@ -733,6 +748,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "aliases"]).unwrap()
         );
@@ -751,6 +767,7 @@ mod tests {
                 json: false,
                 logging: true,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "-l", "list"]).unwrap()
         );
@@ -769,6 +786,7 @@ mod tests {
                 json: false,
                 logging: true,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "--logging", "list"]).unwrap()
         );
@@ -793,6 +811,7 @@ mod tests {
                 json: true,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "--json", "list"]).unwrap()
         );
@@ -811,6 +830,7 @@ mod tests {
                 json: true,
                 logging: false,
                 yes: false,
+                version: (),
             },
             Args::try_parse_from(["test", "-j", "list"]).unwrap()
         );
@@ -829,6 +849,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: true,
+                version: (),
             },
             Args::try_parse_from(["test", "--yes", "list"]).unwrap()
         );
@@ -847,6 +868,7 @@ mod tests {
                 json: false,
                 logging: false,
                 yes: true,
+                version: (),
             },
             Args::try_parse_from(["test", "-y", "list"]).unwrap()
         );
