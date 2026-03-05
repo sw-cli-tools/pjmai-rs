@@ -1,3 +1,3 @@
 #!/bin/sh
 echo "howdy from pjmai!"
-cd ~/github/wrightmikea/pjmai
+cd ~/github/sw-cli-tools/pjmai-rs

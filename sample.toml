@@ -10,7 +10,7 @@ file_or_dir = "~/github/wrightmikea/rtt1"
 name = "pjmai"
 
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjmai/.pjmairc"
+file_or_dir = "~/github/sw-cli-tools/pjmai-rs/.pjmairc"
 
 [[project]]
 name = "mr"

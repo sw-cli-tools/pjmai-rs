@@ -13,7 +13,7 @@ Set Theme "Dracula"
 Set TypingSpeed 50ms
 
 Env PJMAI_CONFIG_DIR "/tmp/pjmai-demo"
-Env PATH "/Users/mike/github/wrightmikea/pjmai/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+Env PATH "/Users/mike/github/sw-cli-tools/pjmai-rs/target/release:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 Type "# PJMAI - Project Management CLI"
 Enter

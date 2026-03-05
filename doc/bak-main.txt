@@ -4,7 +4,7 @@
     } else {
         match args[1].as_ref() {
             "emacs" => println!("/home/mike/.emacs.d/mw-emacs"),
-            "pjmai" => println!("/home/mike/github/wrightmikea/pjmai"),
+            "pjmai" => println!("/home/mike/github/sw-cli-tools/pjmai-rs"),
             "rtt1" => println!("/home/mike/github/wrightmikea/rtt1"),
             _ => println!("/home/mike"),
         }

@@ -177,7 +177,7 @@ echo 'source /path/to/source-pjm.sh' >> ~/.zshrc
 **A. Install Script**
 ```bash
 # One-line install
-curl -fsSL https://raw.githubusercontent.com/wrightmikea/pjmai/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sw-cli-tools/pjmai-rs/main/install.sh | bash
 ```
 
 The install script would:
@@ -191,7 +191,7 @@ The install script would:
 
 **B. Homebrew Formula**
 ```bash
-brew tap wrightmikea/pjmai
+brew tap sw-cli-tools/pjmai-rs
 brew install pjmai
 ```
 
@@ -205,7 +205,7 @@ pjmai setup --shell  # New command to configure shell
 **D. Nix Flake**
 ```nix
 {
-  inputs.pjmai.url = "github:wrightmikea/pjmai";
+  inputs.pjmai.url = "github:sw-cli-tools/pjmai-rs";
   # ...
 }
 ```
@@ -250,7 +250,7 @@ $ lspj --detailed
 ┌────────────┬─────────────────────────┬──────────────────┬───────────┐
 │ Project    │ Path                    │ Tags             │ Last Used │
 ├────────────┼─────────────────────────┼──────────────────┼───────────┤
-│ ▶ pjmai     │ ~/github/wrightmikea/pjmai │ rust, cli, tools │ 2 min ago │
+│ ▶ pjmai     │ ~/github/sw-cli-tools/pjmai-rs │ rust, cli, tools │ 2 min ago │
 │   webapp   │ ~/code/webapp           │ web, python      │ 1 day ago │
 │   dotfiles │ ~/dotfiles              │ config           │ 3 days ago│
 └────────────┴─────────────────────────┴──────────────────┴───────────┘
@@ -302,7 +302,7 @@ $ pjmai --json list
   "projects": [
     {
       "name": "pjmai",
-      "path": "/Users/mike/github/wrightmikea/pjmai",
+      "path": "/Users/mike/github/sw-cli-tools/pjmai-rs",
       "type": "directory",
       "is_current": true,
       "tags": ["rust", "cli"],
@@ -317,7 +317,7 @@ $ pjmai --json list
 $ pjmai --json show
 {
   "name": "pjmai",
-  "path": "/Users/mike/github/wrightmikea/pjmai",
+  "path": "/Users/mike/github/sw-cli-tools/pjmai-rs",
   "type": "directory",
   "is_current": true
 }
@@ -386,7 +386,7 @@ current_project = "pjmai"
 [[project]]
 name = "pjmai"
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjmai"
+file_or_dir = "~/github/sw-cli-tools/pjmai-rs"
 [project.metadata]
 description = "Project manager CLI in Rust"
 language = "rust"
@@ -409,7 +409,7 @@ All public items require doc comments (deny(missing_docs)).
 # Output project context in a format suitable for AI system prompts
 $ pjmai context pjmai
 Project: pjmai
-Path: /Users/mike/github/wrightmikea/pjmai
+Path: /Users/mike/github/sw-cli-tools/pjmai-rs
 Type: Rust CLI application
 
 Build: cargo build
@@ -760,7 +760,7 @@ $ lspj --group work
 
 $ lspj --group oss
 [oss]
-  pjmai       ~/github/wrightmikea/pjmai
+  pjmai       ~/github/sw-cli-tools/pjmai-rs
   rtt1       ~/github/wrightmikea/rtt1
 
 # Switch to a random project in group (for variety)
@@ -936,7 +936,7 @@ Projects using Django:
   - admin-panel (~/code/admin)
 
 $ pjmai ask "switch to my rust CLI project"
-Found: pjmai (~/github/wrightmikea/pjmai)
+Found: pjmai (~/github/sw-cli-tools/pjmai-rs)
 Switch to pjmai? [Y/n]
 ```
 
@@ -1101,7 +1101,7 @@ current_project = "pjmai"
 [[project]]
 name = "pjmai"
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjmai"
+file_or_dir = "~/github/sw-cli-tools/pjmai-rs"
 
 # Version 2 (proposed)
 version = "pjmai-0.2.0"
@@ -1124,7 +1124,7 @@ description = "Project manager CLI"
 last_used = "2024-01-15T10:30:00Z"
 
 [project.action]
-file_or_dir = "~/github/wrightmikea/pjmai"
+file_or_dir = "~/github/sw-cli-tools/pjmai-rs"
 
 [project.metadata]
 language = "rust"
