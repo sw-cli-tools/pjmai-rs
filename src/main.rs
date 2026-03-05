@@ -21,6 +21,7 @@ fn run() -> Result<()> {
 
     let config = config::init_with_args(parsed_args)?;
     let json = config.json;
+    let yes = config.yes;
     match &config.command {
         args::Subcommands::Add {
             project,
@@ -95,7 +96,7 @@ fn run() -> Result<()> {
             ignore,
             dry_run,
             add_all,
-        } => command::scan(dir, *depth, ignore.clone(), *dry_run, *add_all, json)?,
+        } => command::scan(dir, *depth, ignore.clone(), *dry_run, *add_all || yes, json)?,
         args::Subcommands::Setup {
             shell,
             shell_only,

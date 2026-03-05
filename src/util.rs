@@ -19,7 +19,7 @@ fn get_config() -> &'static PjmConfig {
 }
 
 /// Check for serialized registry
-pub fn check() -> Result<()> {
+pub fn check(assume_yes: bool) -> Result<()> {
     info!("create or use registry file (or quit)");
     let config = get_config();
     let config_file = config.config_file_path();
@@ -33,7 +33,7 @@ pub fn check() -> Result<()> {
 
     if !is_file_found(&config_file) {
         info!("registry file not found");
-        if prompt_create_yes_no() {
+        if assume_yes || prompt_create_yes_no() {
             info!("creating registry file");
             save_config_toml(&initial_config_toml()?)?;
         } else {

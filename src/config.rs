@@ -12,6 +12,8 @@ pub struct Config {
     pub command: args::Subcommands,
     /// Output in JSON format
     pub json: bool,
+    /// Assume yes to all prompts
+    pub yes: bool,
 }
 
 /// Establish the configuration from pre-parsed arguments
@@ -33,10 +35,11 @@ pub fn init_with_args(args: args::Args) -> Result<Config> {
 
     util::init_config(pjm_config);
 
-    util::check()?;
+    util::check(args.yes)?;
     Ok(Config {
         command: args.command,
         json: args.json,
+        yes: args.yes,
     })
 }
 
