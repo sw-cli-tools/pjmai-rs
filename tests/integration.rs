@@ -2142,3 +2142,269 @@ file_or_dir = "{}"
         .stdout(predicate::str::contains("proj2"))
         .stdout(predicate::str::contains("mygroup"));
 }
+
+// ============================================================
+// Subdirectory navigation tests
+// ============================================================
+
+#[test]
+fn test_change_to_subdir_exits_with_code_2() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    let subdir = proj_dir.join("src");
+    fs::create_dir_all(&subdir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Change to subdir using space syntax
+    pjmai_cmd(&temp_dir)
+        .args(["change", "-p", "myproj", "src"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::contains(subdir.to_str().unwrap()));
+}
+
+#[test]
+fn test_change_to_nested_subdir() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    let nested = proj_dir.join("src").join("lib");
+    fs::create_dir_all(&nested).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Change using slash syntax
+    pjmai_cmd(&temp_dir)
+        .args(["change", "-p", "myproj", "src/lib"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::contains(nested.to_str().unwrap()));
+}
+
+#[test]
+fn test_change_to_nonexistent_subdir_fails() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["change", "-p", "myproj", "nonexistent"])
+        .assert()
+        .code(4)
+        .stdout(predicate::str::contains("subdirectory 'nonexistent' not found"));
+}
+
+#[test]
+fn test_change_to_file_subdir_fails() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    fs::create_dir(&proj_dir).unwrap();
+    fs::write(proj_dir.join("README.md"), "# Test").unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["change", "-p", "myproj", "README.md"])
+        .assert()
+        .code(4)
+        .stdout(predicate::str::contains("is a file, not a directory"));
+}
+
+#[test]
+fn test_change_to_subdir_json() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    let subdir = proj_dir.join("src");
+    fs::create_dir_all(&subdir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "change", "-p", "myproj", "src"])
+        .assert()
+        .code(2)
+        .stdout(predicate::str::contains("\"subdir\": \"src\""));
+}
+
+#[test]
+fn test_complete_subdirs_all() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    fs::create_dir(&proj_dir).unwrap();
+    fs::create_dir(proj_dir.join("src")).unwrap();
+    fs::create_dir(proj_dir.join("tests")).unwrap();
+    fs::create_dir(proj_dir.join(".hidden")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["complete", "subdirs", "myproj"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("src"))
+        .stdout(predicate::str::contains("tests"))
+        // Hidden directories should be excluded
+        .stdout(predicate::str::contains(".hidden").not());
+}
+
+#[test]
+fn test_complete_subdirs_with_prefix() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    fs::create_dir(&proj_dir).unwrap();
+    fs::create_dir(proj_dir.join("src")).unwrap();
+    fs::create_dir(proj_dir.join("scripts")).unwrap();
+    fs::create_dir(proj_dir.join("tests")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["complete", "subdirs", "myproj", "s"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("src"))
+        .stdout(predicate::str::contains("scripts"))
+        .stdout(predicate::str::contains("tests").not());
+}
+
+#[test]
+fn test_complete_subdirs_nested() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("proj");
+    let src_dir = proj_dir.join("src");
+    fs::create_dir_all(&src_dir).unwrap();
+    fs::create_dir(src_dir.join("lib")).unwrap();
+    fs::create_dir(src_dir.join("bin")).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = ""
+
+[[project]]
+name = "myproj"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Complete inside src directory
+    pjmai_cmd(&temp_dir)
+        .args(["complete", "subdirs", "myproj", "src"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("src/lib"))
+        .stdout(predicate::str::contains("src/bin"));
+}

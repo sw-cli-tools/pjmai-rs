@@ -201,9 +201,9 @@ pub fn aliases(json: bool) {
     info!("aliases done");
 }
 
-/// Changes to the specified project
-pub fn change(project_name: &str, json: bool) -> Result<()> {
-    info!("changing to project {}", &project_name);
+/// Changes to the specified project, optionally into a subdirectory
+pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> {
+    info!("changing to project {} subdirs={:?}", &project_name, subdirs);
     let mut registry = util::projects()?;
 
     // Find matching project(s) using fuzzy matching
@@ -213,61 +213,108 @@ pub fn change(project_name: &str, json: bool) -> Result<()> {
         MatchResult::Exact(project) | MatchResult::Unique(project) => {
             // Clone needed values before modifying registry
             let proj_name = project.name.clone();
-            let file_path = util::expand_file_path(&project.action.file_or_dir);
+            let base_path = util::expand_file_path(&project.action.file_or_dir);
             // Clone project for env setup check (before registry modification)
             let project_clone = project.clone();
 
-            if util::is_file_found(&file_path) {
-                registry.current_project = proj_name.clone();
-                util::save_config_toml(&registry.ser()?)?;
-
-                let is_dir = util::is_file_dir(&file_path);
-                let action = if is_dir { "cd" } else { "source" };
-                let path_type = if is_dir { "directory" } else { "file" };
-
-                if json {
-                    output::print_json(&ChangeOutput {
-                        name: proj_name,
-                        path: file_path.clone(),
-                        path_type: path_type.to_string(),
-                        action: action.to_string(),
-                    });
-                }
-
-                if is_dir {
-                    // Check for environment setup
-                    if let Some(setup_script) = generate_env_setup(&project_clone, &file_path) {
-                        if !json {
-                            print!("{}", setup_script);
-                        }
-                        info!("change done 5");
-                        std::process::exit(5); // bash wrapper will eval the setup script
-                    }
-                    if !json {
-                        print!("{}", &file_path); // path parameter for bash cd command
-                    }
-                    info!("change done 2");
-                    std::process::exit(2); // bash wrapper will cd to the above printed path
-                } else {
-                    if !json {
-                        print!("{}", &file_path); // path parameter for bash source command
-                    }
-                    info!("change done 3");
-                    std::process::exit(3); // bash wrapper will source the above printed path
-                }
-            } else {
+            if !util::is_file_found(&base_path) {
                 if json {
                     output::print_json(&ErrorOutput {
                         code: "TARGET_NOT_FOUND".to_string(),
-                        message: format!("Project target '{}' not found", &file_path),
+                        message: format!("Project target '{}' not found", &base_path),
                         similar_projects: None,
                         hint: Some("The project exists but its target path is missing".to_string()),
                     });
                 } else {
-                    println!("dir or file '{}' not found", &file_path);
+                    println!("dir or file '{}' not found", &base_path);
                 }
                 info!("change done 4a");
-                std::process::exit(4); // bash wrapper will echo the error
+                std::process::exit(4);
+            }
+
+            // Process subdirectories - handle both space and slash syntax
+            let subdir_path = normalize_subdirs(subdirs);
+            let (final_path, subdir_for_output) = if subdir_path.is_empty() {
+                (base_path.clone(), None)
+            } else {
+                let full_path = format!("{}/{}", base_path, subdir_path);
+                // Validate subdir exists and is a directory
+                if !util::is_file_found(&full_path) {
+                    if json {
+                        output::print_json(&ErrorOutput {
+                            code: "SUBDIR_NOT_FOUND".to_string(),
+                            message: format!(
+                                "subdirectory '{}' not found in project '{}'",
+                                subdir_path, proj_name
+                            ),
+                            similar_projects: None,
+                            hint: Some("Use tab completion to see available subdirectories".to_string()),
+                        });
+                    } else {
+                        println!(
+                            "subdirectory '{}' not found in project '{}'",
+                            subdir_path, proj_name
+                        );
+                    }
+                    info!("change done 4d");
+                    std::process::exit(4);
+                }
+                if !util::is_file_dir(&full_path) {
+                    if json {
+                        output::print_json(&ErrorOutput {
+                            code: "NOT_A_DIRECTORY".to_string(),
+                            message: format!("'{}' is a file, not a directory", subdir_path),
+                            similar_projects: None,
+                            hint: Some("Subdirectory navigation only works with directories".to_string()),
+                        });
+                    } else {
+                        println!("'{}' is a file, not a directory", subdir_path);
+                    }
+                    info!("change done 4e");
+                    std::process::exit(4);
+                }
+                (full_path, Some(subdir_path))
+            };
+
+            registry.current_project = proj_name.clone();
+            util::save_config_toml(&registry.ser()?)?;
+
+            let is_dir = util::is_file_dir(&final_path);
+            let action = if is_dir { "cd" } else { "source" };
+            let path_type = if is_dir { "directory" } else { "file" };
+
+            if json {
+                output::print_json(&ChangeOutput {
+                    name: proj_name,
+                    path: final_path.clone(),
+                    path_type: path_type.to_string(),
+                    action: action.to_string(),
+                    subdir: subdir_for_output.clone(),
+                });
+            }
+
+            if is_dir {
+                // Check for environment setup (only for base project path, not subdirs)
+                if subdir_for_output.is_none()
+                    && let Some(setup_script) = generate_env_setup(&project_clone, &final_path)
+                {
+                    if !json {
+                        print!("{}", setup_script);
+                    }
+                    info!("change done 5");
+                    std::process::exit(5); // bash wrapper will eval the setup script
+                }
+                if !json {
+                    print!("{}", &final_path); // path parameter for bash cd command
+                }
+                info!("change done 2");
+                std::process::exit(2); // bash wrapper will cd to the above printed path
+            } else {
+                if !json {
+                    print!("{}", &final_path); // path parameter for bash source command
+                }
+                info!("change done 3");
+                std::process::exit(3); // bash wrapper will source the above printed path
             }
         }
         MatchResult::Ambiguous(matches) => {
@@ -314,6 +361,25 @@ pub fn change(project_name: &str, json: bool) -> Result<()> {
             std::process::exit(4);
         }
     }
+}
+
+/// Normalize subdirectory arguments into a single path string
+/// Handles both space syntax ("src" "lib") and slash syntax ("src/lib")
+fn normalize_subdirs(subdirs: &[String]) -> String {
+    if subdirs.is_empty() {
+        return String::new();
+    }
+
+    // Join all parts with "/" and normalize
+    let joined = subdirs.join("/");
+
+    // Split by "/" to normalize and filter empty parts, then rejoin
+    let parts: Vec<&str> = joined
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    parts.join("/")
 }
 
 /// Result of fuzzy project matching
@@ -939,6 +1005,12 @@ pub fn complete(target: &crate::args::CompleteTarget) -> Result<()> {
         CompleteTarget::Groups { prefix } => {
             complete_groups(prefix.as_deref());
         }
+        CompleteTarget::Subdirs {
+            project,
+            path_parts,
+        } => {
+            complete_subdirs(project, path_parts);
+        }
     }
 
     Ok(())
@@ -1043,6 +1115,109 @@ fn complete_groups(prefix: Option<&str>) {
         };
         if matches {
             println!("{}", group);
+        }
+    }
+}
+
+/// Output subdirectory names within a project (one per line)
+/// path_parts contains the current path being typed (may include partial name)
+fn complete_subdirs(project: &str, path_parts: &[String]) {
+    info!(
+        "complete subdirs project={} path_parts={:?}",
+        project, path_parts
+    );
+
+    // Load projects, silently fail if can't load
+    let Ok(registry) = util::projects() else {
+        return;
+    };
+
+    // Find the project using fuzzy matching
+    let matched = find_matching_project(project, &registry);
+    let project_entry = match matched {
+        MatchResult::Exact(p) | MatchResult::Unique(p) => p,
+        _ => return, // No match or ambiguous - can't complete
+    };
+
+    let base_path = util::expand_file_path(&project_entry.action.file_or_dir);
+
+    // Normalize path parts - handle both space and slash syntax
+    let normalized = normalize_subdirs(path_parts);
+    let parts: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
+
+    // Determine directory to list and prefix to filter by
+    let (search_dir, prefix) = if parts.is_empty() {
+        // No path yet - list immediate children of project
+        (PathBuf::from(&base_path), None)
+    } else {
+        // Check if the last part is a complete directory or a partial prefix
+        let partial_path = parts.join("/");
+        let full_path = format!("{}/{}", base_path, partial_path);
+
+        if Path::new(&full_path).is_dir() {
+            // Last part is a complete directory - list its children
+            (PathBuf::from(&full_path), None)
+        } else {
+            // Last part is a partial name - list parent and filter
+            let parent_parts: Vec<&str> = parts[..parts.len() - 1].to_vec();
+            let search_dir = if parent_parts.is_empty() {
+                PathBuf::from(&base_path)
+            } else {
+                PathBuf::from(format!("{}/{}", base_path, parent_parts.join("/")))
+            };
+            let prefix = parts.last().map(|s| s.to_lowercase());
+            (search_dir, prefix)
+        }
+    };
+
+    // List subdirectories
+    let Ok(entries) = fs::read_dir(&search_dir) else {
+        return;
+    };
+
+    // Build prefix path for output
+    let output_prefix = if parts.is_empty() || prefix.is_some() {
+        if parts.len() > 1 {
+            // Include parent dirs in output
+            format!("{}/", parts[..parts.len() - 1].join("/"))
+        } else {
+            String::new()
+        }
+    } else {
+        // Listing children of a complete directory
+        if parts.is_empty() {
+            String::new()
+        } else {
+            format!("{}/", parts.join("/"))
+        }
+    };
+
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        // Only show directories (skip hidden ones)
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+
+        // Skip hidden directories
+        if name_str.starts_with('.') {
+            continue;
+        }
+
+        // Apply prefix filter if present
+        let matches = match &prefix {
+            Some(p) => name_str.to_lowercase().starts_with(p),
+            None => true,
+        };
+
+        if matches {
+            println!("{}{}", output_prefix, name_str);
         }
     }
 }

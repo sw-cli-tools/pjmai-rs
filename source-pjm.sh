@@ -28,34 +28,59 @@ _pjm_is_approved() {
 
 # Core wrapper that handles exit codes for directory changes and file sourcing
 pjm_fn() {
+    # Reset zsh to default options - critical because pjmai-rs uses non-zero exit codes
+    # intentionally (2=cd, 3=source, 5=eval) and errexit would kill the shell
+    [[ -n "$ZSH_VERSION" ]] && emulate -L zsh
+
+    # For bash, save and disable errexit (will restore at end)
+    local _pjm_errexit_was_set=""
+    if [[ -n "$BASH_VERSION" ]]; then
+        [[ $- == *e* ]] && _pjm_errexit_was_set=1
+        set +e
+    fi
+
+    # Debug mode - set _PJM_DEBUG=1 to trace execution
+    [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] args: $*" >&2
+
     # Run on_exit from previous project first (if any)
     if [[ -n "$_PJMAI_ON_EXIT" ]]; then
-        eval "$_PJMAI_ON_EXIT"
+        [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] running on_exit: $_PJMAI_ON_EXIT" >&2
+        eval "$_PJMAI_ON_EXIT" || true
         _PJMAI_ON_EXIT=""
     fi
 
     PJM_OUT=$(pjmai-rs "$@")
     PJM_EXIT=$?
+    [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] exit=$PJM_EXIT out='$PJM_OUT'" >&2
+
     case "$PJM_EXIT" in
         2)
-            cd "${PJM_OUT}"
+            if [[ -z "$PJM_OUT" ]]; then
+                echo "Error: empty path returned"
+                return 1
+            fi
+            [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] cd to: $PJM_OUT" >&2
+            cd "${PJM_OUT}" || { echo "Failed to cd to: ${PJM_OUT}"; return 1; }
+            [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] cd succeeded, checking .pjmai.sh" >&2
             # Check for .pjmai.sh
             if [[ -f .pjmai.sh ]]; then
+                [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] found .pjmai.sh" >&2
                 if _pjm_is_approved .pjmai.sh; then
-                    # Approved and unchanged - auto-source
+                    [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] sourcing approved .pjmai.sh" >&2
                     source .pjmai.sh
                 else
                     # New or changed - warn
-                    echo "\033[0;33mFound .pjmai.sh\033[0m - inspect: 'cat .pjmai.sh', approve: 'srcpj'"
+                    echo -e "\033[0;33mFound .pjmai.sh\033[0m - inspect: 'cat .pjmai.sh', approve: 'srcpj'"
                 fi
             fi
+            [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] case 2 done" >&2
             ;;
         3)
-            source "$PJM_OUT"
+            source "$PJM_OUT" || { echo "Failed to source: ${PJM_OUT}"; return 1; }
             ;;
         5)
             # Execute environment setup script (cd + exports + on_enter)
-            eval "$PJM_OUT"
+            eval "$PJM_OUT" || { echo "Failed to execute environment setup"; return 1; }
             # Check for .pjmai.sh after environment setup
             if [[ -f .pjmai.sh ]]; then
                 if _pjm_is_approved .pjmai.sh; then
@@ -69,6 +94,11 @@ pjm_fn() {
             echo "$PJM_OUT"
             ;;
     esac
+
+    # Restore bash errexit if it was set
+    [[ -n "$BASH_VERSION" && -n "$_pjm_errexit_was_set" ]] && set -e
+
+    [[ -n "$_PJM_DEBUG" ]] && echo "[pjm_fn] function complete" >&2
 }
 
 # Source .pjmai.sh and approve it (explicit opt-in for project environment)
@@ -123,20 +153,50 @@ _pjm_projects() {
 
 # Shell-specific completion setup
 if [ -n "$ZSH_VERSION" ]; then
-    # Zsh completion
+    # Zsh completion for chpj with subdirectory support
+    _pjm_chpj_complete() {
+        if [[ ${CURRENT} -eq 2 ]]; then
+            # First argument - complete project names
+            local projects
+            projects=(${(f)"$(pjmai-rs complete projects "${words[2]}" 2>/dev/null)"})
+            _describe 'project' projects
+        else
+            # Subsequent arguments - complete subdirs within project
+            local project="${words[2]}"
+            local subdirs
+            subdirs=(${(f)"$(pjmai-rs complete subdirs "$project" "${words[@]:2}" 2>/dev/null)"})
+            _describe 'subdir' subdirs
+        fi
+    }
+    compdef _pjm_chpj_complete chpj
+
+    # Zsh completion for other commands (no subdir support)
     _pjm_complete() {
         local projects
-        # Use prefix filtering for faster completion with many projects
         projects=(${(f)"$(pjmai-rs complete projects "${words[CURRENT]}" 2>/dev/null)"})
         _describe 'project' projects
     }
-    compdef _pjm_complete chpj rmpj pspj
+    compdef _pjm_complete rmpj pspj
+
 elif [ -n "$BASH_VERSION" ]; then
-    # Bash completion with prefix filtering
+    # Bash completion for chpj with subdirectory support
+    _pjm_chpj_complete() {
+        local cur="${COMP_WORDS[COMP_CWORD]}"
+        if [[ ${COMP_CWORD} -eq 1 ]]; then
+            # First argument - complete project names
+            COMPREPLY=($(pjmai-rs complete projects "$cur" 2>/dev/null))
+        else
+            # Subsequent arguments - complete subdirs within project
+            local project="${COMP_WORDS[1]}"
+            COMPREPLY=($(pjmai-rs complete subdirs "$project" "${COMP_WORDS[@]:2}" 2>/dev/null))
+        fi
+    }
+    complete -F _pjm_chpj_complete chpj
+
+    # Bash completion for other commands (no subdir support)
     _pjm_complete() {
         local cur="${COMP_WORDS[COMP_CWORD]}"
-        # Pass prefix directly to pjmai-rs for fast filtering
         COMPREPLY=($(pjmai-rs complete projects "$cur" 2>/dev/null))
     }
-    complete -F _pjm_complete chpj rmpj pspj
+    complete -F _pjm_complete rmpj pspj
 fi

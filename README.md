@@ -142,7 +142,7 @@ prpj
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `pjmai add -p <name> -f <path>` | `adpj` | Add a new project |
-| `pjmai change -p <name>` | `chpj` | Switch to a project |
+| `pjmai change -p <name> [subdir...]` | `chpj` | Switch to a project (optionally into a subdir) |
 | `pjmai list` | `lspj` | List all projects |
 | `pjmai push -p <name>` | `pspj` | Push current to stack, switch to project |
 | `pjmai pop` | `popj` | Pop from stack, return to previous project |
@@ -152,6 +152,7 @@ prpj
 | `pjmai prompt` | `prpj` | Output current project name (for prompts) |
 | `pjmai aliases` | `hlpj` | Show all available aliases |
 | `pjmai complete projects [prefix]` | - | Fast project name completion for shells |
+| `pjmai complete subdirs <project> [path...]` | - | Fast subdirectory completion for shells |
 | `pjmai complete commands [prefix]` | - | Fast command name completion for shells |
 | `pjmai completions <shell>` | - | Generate shell completions |
 | `pjmai scan [dir]` | `scpj` | Scan for git repositories and add as projects |
@@ -276,14 +277,14 @@ Quickly switch context between projects:
 
 ```bash
 # Switch to the webapp project (changes directory)
-chpj -p webapp
+chpj webapp
 
 # Switch to devenv (sources the environment file)
-chpj -p devenv
+chpj devenv
 
 # Fuzzy matching: partial names work too
-chpj -p web      # matches "webapp" if unique
-chpj -p WEBAPP   # case-insensitive matching
+chpj web      # matches "webapp" if unique
+chpj WEBAPP   # case-insensitive matching
 ```
 
 The `change` command supports fuzzy matching:
@@ -292,6 +293,45 @@ The `change` command supports fuzzy matching:
 - **Prefix match**: `web` matches "webapp" (if unique)
 - **Substring match**: `app` matches "webapp" (if unique)
 - **Ambiguous**: If multiple projects match, shows all matches
+
+### Subdirectory Navigation
+
+Navigate directly into subdirectories within a project with tab completion:
+
+```bash
+# Tab completion works at each level
+chpj myproject<TAB>              # Complete project name
+chpj myproject <TAB>             # Complete subdirs: src, tests, docs...
+chpj myproject src/<TAB>         # Complete nested dirs: lib, bin...
+chpj myproject src/lib<ENTER>    # cd to ~/code/myproject/src/lib
+```
+
+Both space and slash syntax work:
+```bash
+chpj myproject src lib           # Space-separated path parts
+chpj myproject src/lib           # Slash-separated path
+chpj myproject src/lib tests     # Mixed syntax
+```
+
+Helpful error messages when paths don't exist:
+```bash
+chpj myproject nonexistent
+# Error: subdirectory 'nonexistent' not found in project 'myproject'
+
+chpj myproject README.md
+# Error: 'README.md' is a file, not a directory
+```
+
+JSON output includes the subdir:
+```bash
+pjmai --json change -p myproject src/lib
+{
+  "name": "myproject",
+  "path": "/home/user/code/myproject/src/lib",
+  "type": "directory",
+  "action": "cd",
+  "subdir": "src/lib"
+}
 
 ### Push/Pop Stack Navigation
 
@@ -560,6 +600,16 @@ This mechanism allows the CLI (which runs as a subprocess) to affect the parent 
 ```bash
 cargo build
 ```
+
+### Quick Update (Development)
+
+For rapid development iteration, use the update script which builds, installs, and reloads shell integration:
+
+```bash
+source update.sh
+```
+
+This must be sourced (not executed) so it can reload the shell integration in your current shell.
 
 ### Testing
 

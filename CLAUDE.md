@@ -169,3 +169,34 @@ The `source-pjm.sh` script uses this for dynamic tab completion on `chpj` and `r
 ## Fuzzy Matching
 
 The `change` command supports fuzzy matching: exact match, case-insensitive, prefix match, and substring match. Ambiguous matches show all candidates.
+
+## Subdirectory Navigation
+
+Navigate directly into subdirectories within a project with tab completion at each level:
+
+```bash
+chpj myproject<TAB>              # Complete project name
+chpj myproject <TAB>             # Complete subdirs: src, tests, ...
+chpj myproject src/<TAB>         # Complete nested: lib, main.rs parent dir, ...
+chpj myproject src/lib<ENTER>    # cd to the subdir
+```
+
+Both space syntax and slash syntax work:
+```bash
+chpj myproject src lib           # Space-separated path parts
+chpj myproject src/lib           # Slash-separated path
+chpj myproject src/lib tests     # Mixed syntax
+```
+
+The `complete subdirs` subcommand provides subdir completion:
+```bash
+pjmai complete subdirs myproject           # List immediate subdirs
+pjmai complete subdirs myproject src       # List subdirs of src/
+pjmai complete subdirs myproject src/lib   # List subdirs of src/lib/
+```
+
+Errors are reported if the subdirectory doesn't exist or is a file:
+```bash
+chpj myproject nonexistent       # Error: subdirectory 'nonexistent' not found
+chpj myproject README.md         # Error: 'README.md' is a file, not a directory
+```

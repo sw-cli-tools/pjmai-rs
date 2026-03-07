@@ -46,7 +46,7 @@ fn run() -> Result<()> {
             json,
         )?,
         args::Subcommands::Aliases {} => command::aliases(json),
-        args::Subcommands::Change { project } => command::change(project, json)?,
+        args::Subcommands::Change { project, subdirs } => command::change(project, subdirs, json)?,
         args::Subcommands::Complete { target } => command::complete(target)?,
         args::Subcommands::Completions { .. } => unreachable!(), // handled above
         args::Subcommands::Config { action } => match action {

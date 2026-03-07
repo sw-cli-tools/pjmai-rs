@@ -105,6 +105,9 @@ pub struct ChangeOutput {
     pub path_type: String,
     /// Action for shell (cd or source)
     pub action: String,
+    /// Subdirectory path within the project (if navigating to a subdir)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subdir: Option<String>,
 }
 
 /// JSON output for errors

@@ -103,6 +103,10 @@ pub enum Subcommands {
         /// Project to switch to
         #[arg(long, short)]
         project: ProjectName,
+
+        /// Subdirectory path(s) within the project (supports both space and slash syntax)
+        #[arg(trailing_var_arg = true)]
+        subdirs: Vec<String>,
     },
 
     /// Generate shell completions for bash, zsh, fish, elvish, or powershell
@@ -335,6 +339,17 @@ pub enum CompleteTarget {
     Groups {
         /// Optional prefix to filter groups
         prefix: Option<String>,
+    },
+
+    /// Complete subdirectory names within a project
+    #[command(name = "subdirs")]
+    Subdirs {
+        /// Project name to complete subdirs for
+        project: String,
+
+        /// Path parts within the project (for nested subdirs)
+        #[arg(trailing_var_arg = true)]
+        path_parts: Vec<String>,
     },
 }
 
@@ -598,6 +613,7 @@ mod tests {
             Args {
                 command: Subcommands::Change {
                     project: "myproject".to_string(),
+                    subdirs: vec![],
                 },
                 debug: false,
                 json: false,
@@ -614,6 +630,7 @@ mod tests {
             Args {
                 command: Subcommands::Change {
                     project: "foo".to_string(),
+                    subdirs: vec![],
                 },
                 debug: false,
                 json: false,
@@ -621,6 +638,23 @@ mod tests {
                 yes: false,
             },
             Args::try_parse_from(["test", "c", "-p", "foo"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_change_with_subdirs() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Change {
+                    project: "myproj".to_string(),
+                    subdirs: vec!["src".to_string(), "lib".to_string()],
+                },
+                debug: false,
+                json: false,
+                logging: false,
+                yes: false,
+            },
+            Args::try_parse_from(["test", "change", "-p", "myproj", "src", "lib"]).unwrap()
         );
     }
 
