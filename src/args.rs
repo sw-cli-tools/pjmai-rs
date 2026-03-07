@@ -97,7 +97,8 @@ pub enum Subcommands {
         group: Option<String>,
     },
 
-    /// Changes to the specified project (changes directory or sources file); alias chpj
+    /// Changes to the specified project (changes directory or sources file); alias chpj.
+    /// Clears the push/pop stack (use pspj/popj for stack-based navigation)
     #[command(name = "change", alias = "c")]
     Change {
         /// Project to switch to
@@ -197,7 +198,9 @@ pub enum Subcommands {
         group: Option<String>,
     },
 
-    /// Pop from project stack and switch to the popped project; alias popj
+    /// Pop from project stack and switch to the popped project; alias popj.
+    /// Shows which project is being restored and remaining stack depth.
+    /// No-op with warning if stack is empty
     #[command(name = "pop")]
     Pop {},
 
@@ -213,12 +216,29 @@ pub enum Subcommands {
         project: ProjectName,
     },
 
-    /// Removes a previously created project from the projects configuration; alias rmpj
+    /// Manage the project stack (defaults to show); alias stpj
+    #[command(name = "stack")]
+    Stack {
+        /// Stack action (defaults to show)
+        #[command(subcommand)]
+        action: Option<StackAction>,
+    },
+
+    /// Removes a previously created project from the projects configuration; alias rmpj.
+    /// Use --all to remove all projects (prompts for confirmation unless -y is passed)
     #[command(name = "remove", alias = "r")]
     Remove {
         /// Removes project with this name
-        #[arg(long, short)]
-        project: ProjectName,
+        #[arg(long, short, required_unless_present = "all")]
+        project: Option<ProjectName>,
+
+        /// Remove all projects
+        #[arg(long)]
+        all: bool,
+
+        /// Skip confirmation prompt (for --all)
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
 
     /// Rename a project's nickname; alias mvpj
@@ -299,6 +319,10 @@ pub enum Subcommands {
         /// Add all found projects without confirmation
         #[arg(long)]
         add_all: bool,
+
+        /// Clear all existing projects before scanning (fresh re-scan)
+        #[arg(long)]
+        reset: bool,
     },
 
     /// Manage project groups (inferred from directory structure)
@@ -307,6 +331,16 @@ pub enum Subcommands {
         /// Group operation
         #[command(subcommand)]
         action: GroupAction,
+    },
+
+    /// Show or jump to project navigation history; alias hypj
+    ///
+    /// With no arguments, shows numbered history (most recent last).
+    /// With an index, jumps to that project (like shell !nn).
+    #[command(name = "history")]
+    History {
+        /// History entry index to jump to (from `hypj` output)
+        index: Option<usize>,
     },
 }
 
@@ -547,6 +581,22 @@ pub enum GroupAction {
     },
 }
 
+/// Actions for the `stack` subcommand
+#[derive(Debug, PartialEq, Subcommand)]
+pub enum StackAction {
+    /// Show the current project stack
+    #[command(name = "show")]
+    Show {},
+
+    /// Clear the project stack (prompts for confirmation)
+    #[command(name = "clear")]
+    Clear {
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
+}
+
 /// Generate shell completions to stdout
 pub fn print_completions(shell: Shell) {
     let mut cmd = Args::command();
@@ -699,7 +749,9 @@ mod tests {
         assert_eq!(
             Args {
                 command: Subcommands::Remove {
-                    project: "oldproject".to_string(),
+                    project: Some("oldproject".to_string()),
+                    all: false,
+                    yes: false,
                 },
                 debug: false,
                 json: false,
@@ -715,7 +767,9 @@ mod tests {
         assert_eq!(
             Args {
                 command: Subcommands::Remove {
-                    project: "bar".to_string(),
+                    project: Some("bar".to_string()),
+                    all: false,
+                    yes: false,
                 },
                 debug: false,
                 json: false,

@@ -19,6 +19,9 @@ pub struct ProjectsRegistry {
     /// Stack of previous projects for push/pop navigation
     #[serde(default)]
     pub stack: Vec<ProjectName>,
+    /// Navigation history (most recent last)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub history: Vec<ProjectName>,
     /// Group aliases (group_name -> alias)
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub group_aliases: HashMap<String, String>,
@@ -128,6 +131,16 @@ impl ProjectsRegistry {
     /// Find a project by name (mutable)
     pub fn find_project_mut(&mut self, name: &str) -> Option<&mut ChangeToProject> {
         self.project.iter_mut().find(|p| p.name == name)
+    }
+
+    /// Record a project navigation in history (capped at 50 entries)
+    pub fn record_history(&mut self, name: &str) {
+        const MAX_HISTORY: usize = 50;
+        self.history.push(name.to_string());
+        if self.history.len() > MAX_HISTORY {
+            let drain = self.history.len() - MAX_HISTORY;
+            self.history.drain(..drain);
+        }
     }
 
     /// Update last_used timestamp for a project

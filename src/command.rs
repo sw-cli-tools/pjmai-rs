@@ -115,6 +115,11 @@ pub fn aliases(json: bool) {
                 description: "Show all aliases".to_string(),
             },
             AliasOutput {
+                alias: "hypj".to_string(),
+                command: "pjmai history".to_string(),
+                description: "Show or jump to project history".to_string(),
+            },
+            AliasOutput {
                 alias: "lspj".to_string(),
                 command: "pjmai list".to_string(),
                 description: "List all projects".to_string(),
@@ -155,6 +160,11 @@ pub fn aliases(json: bool) {
                 description: "Show current project".to_string(),
             },
             AliasOutput {
+                alias: "stpj".to_string(),
+                command: "pjmai stack".to_string(),
+                description: "Show or clear project stack".to_string(),
+            },
+            AliasOutput {
                 alias: "srcpj".to_string(),
                 command: "source .pjmai.sh".to_string(),
                 description: "Source project env file (explicit opt-in)".to_string(),
@@ -182,6 +192,7 @@ pub fn aliases(json: bool) {
         println!("ctpj [name]               # alias for pjmai context");
         println!("evpj <name> <cmd> [args]  # alias for pjmai env");
         println!("hlpj                      # alias for pjmai aliases");
+        println!("hypj [N]                  # alias for pjmai history");
         println!("lspj                      # alias for pjmai list");
         println!("mvpj <old> <new>          # alias for pjmai rename");
         println!("popj                      # alias for pjmai pop");
@@ -190,6 +201,7 @@ pub fn aliases(json: bool) {
         println!("rmpj <name>               # alias for pjmai remove");
         println!("scpj [dir]                # alias for pjmai scan");
         println!("shpj                      # alias for pjmai show");
+        println!("stpj show|clear           # alias for pjmai stack");
         println!("srcpj                     # source .pjmai.sh (opt-in env)");
         println!();
         println!("{}", "Group aliases:".bold());
@@ -276,7 +288,18 @@ pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> 
                 (full_path, Some(subdir_path))
             };
 
+            // Clear stack - chpj is non-stack navigation, abandons push/pop workflow
+            if !registry.stack.is_empty() {
+                eprintln!(
+                    "{}: Clearing stack ({} entries) — use pspj/popj for stack navigation",
+                    "note".cyan().bold(),
+                    registry.stack.len()
+                );
+                registry.stack.clear();
+            }
+
             registry.current_project = proj_name.clone();
+            registry.record_history(&proj_name);
             util::save_config_toml(&registry.ser()?)?;
 
             let is_dir = util::is_file_dir(&final_path);
@@ -609,6 +632,7 @@ pub fn push(project_name: &str, json: bool) -> Result<()> {
 
                 // Switch to new project
                 registry.current_project = proj_name.clone();
+                registry.record_history(&proj_name);
                 util::save_config_toml(&registry.ser()?)?;
 
                 let is_dir = util::is_file_dir(&file_path);
@@ -718,6 +742,19 @@ pub fn pop(json: bool) -> Result<()> {
     // Pop from stack
     let popped_project = registry.stack.pop().unwrap();
 
+    // Tell user what we're returning to
+    if !json {
+        let remaining = registry.stack.len();
+        if remaining > 0 {
+            eprintln!(
+                "Returning to '{}' ({} remaining)",
+                popped_project, remaining
+            );
+        } else {
+            eprintln!("Returning to '{}' (stack now empty)", popped_project);
+        }
+    }
+
     // Find the popped project
     let project = registry
         .project
@@ -731,6 +768,7 @@ pub fn pop(json: bool) -> Result<()> {
 
             if util::is_file_found(&file_path) {
                 registry.current_project = proj_name.clone();
+                registry.record_history(&proj_name);
                 util::save_config_toml(&registry.ser()?)?;
 
                 let is_dir = util::is_file_dir(&file_path);
@@ -798,6 +836,150 @@ pub fn pop(json: bool) -> Result<()> {
                 );
             }
             Ok(())
+        }
+    }
+}
+
+/// Show the current project stack
+pub fn stack_show(json: bool) -> Result<()> {
+    info!("stack show");
+    let registry = util::projects()?;
+
+    if json {
+        output::print_json(&output::StackOutput {
+            depth: registry.stack.len(),
+            stack: registry.stack.clone(),
+            cleared: None,
+        });
+    } else if registry.stack.is_empty() {
+        println!("Stack is empty");
+    } else {
+        println!(
+            "Stack ({}):",
+            registry.stack.len()
+        );
+        for (i, name) in registry.stack.iter().rev().enumerate() {
+            let marker = if i == 0 { "top -> " } else { "       " };
+            println!("  {}{}", marker, name);
+        }
+    }
+    Ok(())
+}
+
+/// Clear the project stack
+pub fn stack_clear(yes: bool, json: bool) -> Result<()> {
+    info!("stack clear");
+    let mut registry = util::projects()?;
+
+    let depth = registry.stack.len();
+    if depth == 0 {
+        if json {
+            output::print_json(&output::StackOutput {
+                depth: 0,
+                stack: vec![],
+                cleared: Some(false),
+            });
+        } else {
+            println!("Stack is already empty");
+        }
+        return Ok(());
+    }
+
+    if !yes && !json {
+        eprintln!(
+            "Stack has {} entry(ies): {}",
+            depth,
+            registry.stack.join(", ")
+        );
+        eprint!("Clear stack? [y/N] ");
+        let mut input = String::new();
+        std::io::stdin()
+            .read_line(&mut input)
+            .map_err(PjmError::ConfigRead)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            eprintln!("Cancelled");
+            return Ok(());
+        }
+    }
+
+    registry.stack.clear();
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&output::StackOutput {
+            depth: 0,
+            stack: vec![],
+            cleared: Some(true),
+        });
+    } else {
+        println!("Cleared {} entry(ies) from stack", depth);
+    }
+    Ok(())
+}
+
+/// Show navigation history or jump to a history entry
+pub fn history(index: Option<&usize>, json: bool) -> Result<()> {
+    info!("history index={:?}", index);
+
+    match index {
+        None => {
+            // Show history
+            let registry = util::projects()?;
+            if json {
+                let entries: Vec<output::HistoryEntry> = registry
+                    .history
+                    .iter()
+                    .enumerate()
+                    .map(|(i, name)| output::HistoryEntry {
+                        index: i + 1,
+                        name: name.clone(),
+                    })
+                    .collect();
+                let total = entries.len();
+                output::print_json(&output::HistoryOutput { entries, total });
+            } else if registry.history.is_empty() {
+                println!("No navigation history");
+            } else {
+                for (i, name) in registry.history.iter().enumerate() {
+                    let marker = if name == &registry.current_project {
+                        ">"
+                    } else {
+                        " "
+                    };
+                    println!("{}{:4}  {}", marker, i + 1, name);
+                }
+            }
+            Ok(())
+        }
+        Some(idx) => {
+            // Jump to history entry
+            let registry = util::projects()?;
+            if *idx == 0 || *idx > registry.history.len() {
+                if json {
+                    output::print_json(&ErrorOutput {
+                        code: "INVALID_INDEX".to_string(),
+                        message: format!(
+                            "History index {} out of range (1-{})",
+                            idx,
+                            registry.history.len()
+                        ),
+                        similar_projects: None,
+                        hint: Some("Use 'hypj' to see available entries".to_string()),
+                    });
+                } else {
+                    eprintln!(
+                        "{}: History index {} out of range (1-{})",
+                        "warning".yellow().bold(),
+                        idx,
+                        registry.history.len()
+                    );
+                }
+                return Ok(());
+            }
+
+            let project_name = registry.history[*idx - 1].clone();
+            // Delegate to change (which records history, clears stack, etc.)
+            change(&project_name, &[], json)
         }
     }
 }
@@ -922,6 +1104,61 @@ pub fn remove(unwanted_project_name: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// Remove all projects from the registry
+pub fn remove_all(yes: bool, json: bool) -> Result<()> {
+    info!("remove all");
+    let mut registry = util::projects()?;
+    let count = registry.project.len();
+
+    if count == 0 {
+        if json {
+            output::print_json(&SuccessOutput {
+                success: true,
+                operation: "remove_all".to_string(),
+                project: "(none)".to_string(),
+            });
+        } else {
+            println!("No projects to remove");
+        }
+        return Ok(());
+    }
+
+    if !yes && !json {
+        eprintln!("This will remove all {} project(s):", count);
+        for p in &registry.project {
+            eprintln!("  {} ({})", p.name, util::shorten_path(&p.action.file_or_dir));
+        }
+        eprint!("Remove all? [y/N] ");
+        use std::io::Write;
+        std::io::stderr().flush().map_err(PjmError::ConfigRead)?;
+        let mut input = String::new();
+        std::io::stdin()
+            .read_line(&mut input)
+            .map_err(PjmError::ConfigRead)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            eprintln!("Cancelled");
+            return Ok(());
+        }
+    }
+
+    registry.project.clear();
+    registry.current_project = String::new();
+    registry.stack.clear();
+    registry.history.clear();
+    util::save_config_toml(&registry.ser()?)?;
+
+    if json {
+        output::print_json(&SuccessOutput {
+            success: true,
+            operation: "remove_all".to_string(),
+            project: format!("{} projects", count),
+        });
+    } else {
+        println!("Removed all {} project(s)", count);
+    }
+    Ok(())
+}
+
 /// Show the name and path for the current project
 pub fn show(json: bool) -> Result<()> {
     info!("showing current project");
@@ -1025,16 +1262,76 @@ fn complete_projects(prefix: Option<&str>) {
         return;
     };
 
-    let prefix_lower = prefix.map(|s| s.to_lowercase());
-
-    for project in &registry.project {
-        let matches = match &prefix_lower {
-            Some(p) => project.name.to_lowercase().starts_with(p),
-            None => true,
-        };
-        if matches {
+    let Some(query) = prefix.filter(|s| !s.is_empty()) else {
+        // No prefix — return all projects sorted by recency
+        let sorted = registry.projects_by_recency();
+        for project in sorted {
             println!("{}", project.name);
         }
+        return;
+    };
+
+    let query_lower = query.to_lowercase();
+
+    // Tier 1: prefix matches (name starts with query)
+    let mut prefix_matches: Vec<&projects::ChangeToProject> = registry
+        .project
+        .iter()
+        .filter(|p| p.name.to_lowercase().starts_with(&query_lower))
+        .collect();
+
+    // Tier 2: segment matches (query appears after a '-' boundary, e.g., "rank" in "sw-cl-rank-wav-rs")
+    let mut segment_matches: Vec<&projects::ChangeToProject> = registry
+        .project
+        .iter()
+        .filter(|p| {
+            let name_lower = p.name.to_lowercase();
+            !name_lower.starts_with(&query_lower)
+                && name_lower
+                    .split('-')
+                    .any(|seg| seg.starts_with(&query_lower))
+        })
+        .collect();
+
+    // Tier 3: substring matches (query appears anywhere)
+    let mut substring_matches: Vec<&projects::ChangeToProject> = registry
+        .project
+        .iter()
+        .filter(|p| {
+            let name_lower = p.name.to_lowercase();
+            !name_lower.starts_with(&query_lower)
+                && !name_lower.split('-').any(|seg| seg.starts_with(&query_lower))
+                && name_lower.contains(&query_lower)
+        })
+        .collect();
+
+    // Sort each tier by recency (most recently used first)
+    let sort_by_recency = |a: &&projects::ChangeToProject, b: &&projects::ChangeToProject| {
+        let a_time = a
+            .metadata
+            .as_ref()
+            .and_then(|m| m.last_used.as_ref())
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        let b_time = b
+            .metadata
+            .as_ref()
+            .and_then(|m| m.last_used.as_ref())
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        b_time.cmp(a_time)
+    };
+
+    prefix_matches.sort_by(sort_by_recency);
+    segment_matches.sort_by(sort_by_recency);
+    substring_matches.sort_by(sort_by_recency);
+
+    for project in prefix_matches
+        .iter()
+        .chain(segment_matches.iter())
+        .chain(substring_matches.iter())
+    {
+        println!("{}", project.name);
     }
 }
 
@@ -2484,7 +2781,29 @@ fn normalize_host(host: &str) -> String {
     host.to_string()
 }
 
-/// Generate unique nicknames for discovered repos, handling collisions
+/// Abbreviate an owner name for use as a prefix.
+/// Takes dash-separated segments and returns the shortest unique-enough prefix.
+/// e.g., "softwarewrighter" → "soft", "sw-cli-tools" → "sw-cli", "sw-music-tools" → "sw-mu"
+fn abbreviate_owner(owner: &str) -> String {
+    let parts: Vec<&str> = owner.split('-').collect();
+    if parts.len() == 1 {
+        // Single word: take first 4 chars (or whole word if shorter)
+        let len = owner.len().min(4);
+        return owner[..len].to_string();
+    }
+    // Multi-part: take first part + abbreviated second part
+    let first = parts[0];
+    let second_abbrev = if parts[1].len() > 2 {
+        &parts[1][..2]
+    } else {
+        parts[1]
+    };
+    format!("{}-{}", first, second_abbrev)
+}
+
+/// Generate unique nicknames for discovered repos, handling collisions.
+/// When repos share the same base name, prefixes with abbreviated owner
+/// (e.g., "foo" from "sw-cli-tools" becomes "sw-cli-foo").
 fn generate_unique_nicknames(
     repos: Vec<DiscoveredRepo>,
     existing_registry: &projects::ProjectsRegistry,
@@ -2495,16 +2814,44 @@ fn generate_unique_nicknames(
         .map(|p| p.name.clone())
         .collect();
 
+    // First pass: detect which base names have collisions (including with existing registry)
+    let mut name_counts: HashMap<String, usize> = HashMap::new();
+    for name in used_names.iter() {
+        *name_counts.entry(name.clone()).or_insert(0) += 1;
+    }
+    for repo in &repos {
+        *name_counts.entry(repo.suggested_name.clone()).or_insert(0) += 1;
+    }
+
     let mut result = Vec::new();
 
     for mut repo in repos {
         let base_name = repo.suggested_name.clone();
-        let mut final_name = base_name.clone();
-        let mut counter = 2;
 
-        while used_names.contains(&final_name) {
-            final_name = format!("{}{}", base_name, counter);
-            counter += 1;
+        if !used_names.contains(&base_name) && name_counts.get(&base_name).copied().unwrap_or(0) <= 1 {
+            // No collision — use as-is
+            used_names.insert(base_name);
+            result.push(repo);
+            continue;
+        }
+
+        // Collision — try owner-prefixed name
+        let mut final_name = if let Some(ref owner) = repo.owner {
+            let prefix = abbreviate_owner(owner);
+            format!("{}-{}", prefix, base_name)
+        } else {
+            // No owner info — fall back to numeric suffix
+            base_name.clone()
+        };
+
+        // If still colliding (unlikely but possible), add numeric suffix
+        if used_names.contains(&final_name) {
+            let prefixed = final_name.clone();
+            let mut counter = 2;
+            while used_names.contains(&final_name) {
+                final_name = format!("{}{}", prefixed, counter);
+                counter += 1;
+            }
         }
 
         used_names.insert(final_name.clone());

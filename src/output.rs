@@ -75,6 +75,36 @@ pub struct PushPopOutput {
     pub stack_depth: usize,
 }
 
+/// JSON output for stack show/clear operations
+#[derive(Debug, Serialize)]
+pub struct StackOutput {
+    /// Stack entries (bottom to top)
+    pub stack: Vec<String>,
+    /// Current stack depth
+    pub depth: usize,
+    /// Whether the stack was cleared
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cleared: Option<bool>,
+}
+
+/// JSON output for history command
+#[derive(Debug, Serialize)]
+pub struct HistoryOutput {
+    /// History entries (oldest first)
+    pub entries: Vec<HistoryEntry>,
+    /// Total entries
+    pub total: usize,
+}
+
+/// A single history entry
+#[derive(Debug, Serialize)]
+pub struct HistoryEntry {
+    /// Entry index (1-based)
+    pub index: usize,
+    /// Project name
+    pub name: String,
+}
+
 /// JSON output for the prompt command
 #[derive(Debug, Serialize)]
 pub struct PromptOutput {

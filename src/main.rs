@@ -92,9 +92,25 @@ fn run() -> Result<()> {
         } => command::meta(project, description.clone(), language.clone(), group.clone(), json)?,
         args::Subcommands::Note { project, action } => command::note(project, action, json)?,
         args::Subcommands::Pop {} => command::pop(json)?,
+        args::Subcommands::Stack { action } => match action {
+            None | Some(args::StackAction::Show {}) => command::stack_show(json)?,
+            Some(args::StackAction::Clear { yes: skip_confirm }) => {
+                command::stack_clear(yes || *skip_confirm, json)?
+            }
+        },
         args::Subcommands::Prompt {} => command::prompt(json)?,
         args::Subcommands::Push { project } => command::push(project, json)?,
-        args::Subcommands::Remove { project } => command::remove(project, json)?,
+        args::Subcommands::Remove {
+            project,
+            all,
+            yes: skip_confirm,
+        } => {
+            if *all {
+                command::remove_all(yes || *skip_confirm, json)?;
+            } else {
+                command::remove(project.as_deref().unwrap(), json)?;
+            }
+        }
         args::Subcommands::Rename { from, to } => command::rename(from, to, json)?,
         args::Subcommands::Scan {
             dir,
@@ -102,7 +118,13 @@ fn run() -> Result<()> {
             ignore,
             dry_run,
             add_all,
-        } => command::scan(dir, *depth, ignore.clone(), *dry_run, *add_all || yes, json)?,
+            reset,
+        } => {
+            if *reset && !*dry_run {
+                command::remove_all(yes, json)?;
+            }
+            command::scan(dir, *depth, ignore.clone(), *dry_run, *add_all || yes, json)?;
+        }
         args::Subcommands::Setup {
             shell,
             shell_only,
@@ -111,6 +133,7 @@ fn run() -> Result<()> {
         } => command::setup(*shell, *shell_only, *completions_only, *prompt, json)?,
         args::Subcommands::Show {} => command::show(json)?,
         args::Subcommands::Tag { project, action } => command::tag(project, action, json)?,
+        args::Subcommands::History { index } => command::history(index.as_ref(), json)?,
         args::Subcommands::Group { action } => match action {
             args::GroupAction::List { all } => command::group_list(*all, json)?,
             args::GroupAction::Show { name, all } => {

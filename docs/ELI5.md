@@ -591,18 +591,20 @@ After installing PJMAI, you get these short aliases:
 | Alias | Command | Description |
 |-------|---------|-------------|
 | `adpj` | `pjmai add` | Add a new project |
-| `chpj` | `pjmai change` | Switch to a project |
+| `chpj` | `pjmai change` | Switch to a project (clears stack) |
 | `ctpj` | `pjmai context` | Show project context (for AI) |
 | `evpj` | `pjmai env` | Manage environment config |
 | `hlpj` | `pjmai aliases` | Show all aliases |
+| `hypj` | `pjmai history` | Show or jump to navigation history |
 | `lspj` | `pjmai list` | List all projects |
 | `mvpj` | `pjmai rename` | Rename a project |
 | `popj` | `pjmai pop` | Pop from project stack |
 | `prpj` | `pjmai prompt` | Get current project for prompt |
 | `pspj` | `pjmai push` | Push and switch project |
-| `rmpj` | `pjmai remove` | Remove a project |
-| `scpj` | `pjmai scan` | Scan for git repos |
+| `rmpj` | `pjmai remove` | Remove a project (`--all` supported) |
+| `scpj` | `pjmai scan` | Scan for git repos (`--reset` supported) |
 | `shpj` | `pjmai show` | Show current project |
+| `stpj` | `pjmai stack` | Show or clear project stack |
 | `srcpj` | (shell function) | Source and approve `.pjmai.sh` |
 
 **Group aliases:**

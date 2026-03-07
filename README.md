@@ -142,20 +142,22 @@ prpj
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `pjmai add -p <name> -f <path>` | `adpj` | Add a new project |
-| `pjmai change -p <name> [subdir...]` | `chpj` | Switch to a project (optionally into a subdir) |
+| `pjmai change -p <name> [subdir...]` | `chpj` | Switch to a project (clears stack) |
+| `pjmai history [N]` | `hypj` | Show or jump to navigation history |
 | `pjmai list` | `lspj` | List all projects |
 | `pjmai push -p <name>` | `pspj` | Push current to stack, switch to project |
 | `pjmai pop` | `popj` | Pop from stack, return to previous project |
-| `pjmai remove -p <name>` | `rmpj` | Remove a project |
+| `pjmai remove -p <name>` | `rmpj` | Remove a project (`--all` to remove all) |
 | `pjmai rename -f <old> -t <new>` | `mvpj` | Rename a project |
 | `pjmai show` | `shpj` | Show current project (and stack) |
+| `pjmai stack [show\|clear]` | `stpj` | Show or clear the project stack |
 | `pjmai prompt` | `prpj` | Output current project name (for prompts) |
 | `pjmai aliases` | `hlpj` | Show all available aliases |
-| `pjmai complete projects [prefix]` | - | Fast project name completion for shells |
+| `pjmai complete projects [prefix]` | - | Fuzzy project name completion for shells |
 | `pjmai complete subdirs <project> [path...]` | - | Fast subdirectory completion for shells |
 | `pjmai complete commands [prefix]` | - | Fast command name completion for shells |
 | `pjmai completions <shell>` | - | Generate shell completions |
-| `pjmai scan [dir]` | `scpj` | Scan for git repositories and add as projects |
+| `pjmai scan [dir]` | `scpj` | Scan for git repos (`--reset` for fresh scan) |
 | `pjmai context [-p project]` | `ctpj` | Show project context for AI agents |
 | `pjmai env -p <name> <action>` | `evpj` | Manage project environment config |
 | `pjmai config export` | - | Export configuration to stdout |

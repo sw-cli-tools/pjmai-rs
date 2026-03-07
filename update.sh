@@ -73,6 +73,9 @@ cp "$SCRIPT_DIR/source-pjm.sh" "$PJMAI_DIR/source-pjm.sh"
 VERSION=$("$INSTALL_PREFIX/pjmai-rs" --version 2>&1 | head -1)
 success "Updated: ${VERSION}"
 
+# Clear project stack (reinstall invalidates stack state)
+"$INSTALL_PREFIX/pjmai-rs" stack clear -y 2>/dev/null && info "Project stack cleared" || true
+
 info "Reloading shell integration..."
 source "$PJMAI_DIR/source-pjm.sh"
 success "Shell integration reloaded!"

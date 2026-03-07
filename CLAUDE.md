@@ -73,18 +73,20 @@ This outputs to stderr:
 
 After sourcing `source-pjm.sh` (or running `pjmai setup`):
 - `adpj` - Add project
-- `chpj` - Change to project
+- `chpj` - Change to project (clears push/pop stack)
 - `ctpj` - Show project context
 - `evpj` - Manage project environment config
 - `hlpj` - Show all aliases
+- `hypj` - Show or jump to navigation history
 - `lspj` - List projects
 - `mvpj` - Rename project
-- `popj` - Pop from project stack
+- `popj` - Pop from project stack (shows destination)
 - `prpj` - Get project name for shell prompt
 - `pspj` - Push to stack and switch project
-- `rmpj` - Remove project
-- `scpj` - Scan for git repositories
+- `rmpj` - Remove project (supports `--all`)
+- `scpj` - Scan for git repositories (supports `--reset`)
 - `shpj` - Show current project
+- `stpj` - Show or clear project stack
 - `srcpj` - Source and approve .pjmai.sh
 
 ## Installation
@@ -178,17 +180,42 @@ Parses git remote origin URLs (including SSH aliases like `github.com-work`) to 
 The `complete` subcommand provides fast, native completion for shells:
 
 ```bash
-pjmai complete projects          # List all project names
-pjmai complete projects web      # List projects starting with "web"
+pjmai complete projects          # List all project names (sorted by recency)
+pjmai complete projects web      # List matching projects (prefix > segment > substring)
 pjmai complete commands          # List all command names
 pjmai complete commands ch       # List commands starting with "ch"
 ```
 
-The `source-pjm.sh` script uses this for dynamic tab completion on `chpj` and `rmpj`.
+The `source-pjm.sh` script uses this for dynamic tab completion on `chpj`, `rmpj`, and `pspj`.
+
+**Zsh completion** uses matchers for case-insensitive + substring matching:
+- `chpj rank<TAB>` finds `sw-cl-rank-wav-rs` (substring match)
+- `chpj SW<TAB>` finds `sw-*` projects (case-insensitive)
+
+**Bash completion** uses prefix + case-insensitive matching via the Rust binary.
 
 ## Fuzzy Matching
 
 The `change` command supports fuzzy matching: exact match, case-insensitive, prefix match, and substring match. Ambiguous matches show all candidates.
+
+## Navigation History
+
+Navigate to previously visited projects:
+
+```bash
+pjmai history            # Show numbered history (most recent last)
+pjmai history 3          # Jump to entry #3 (like shell !nn)
+```
+
+## Stack Management
+
+```bash
+pjmai stack              # Show current stack (defaults to show)
+pjmai stack clear        # Clear the stack (prompts for confirmation)
+pjmai stack clear -y     # Clear without prompting
+```
+
+`chpj` clears the stack automatically (non-stack navigation abandons the push/pop workflow).
 
 ## Subdirectory Navigation
 

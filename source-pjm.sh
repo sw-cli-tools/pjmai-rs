@@ -132,6 +132,7 @@ chpj() { pjm_fn change -p "$@"; }
 ctpj() { pjm_fn context "$@"; }
 evpj() { pjm_fn env -p "$@"; }
 hlpj() { pjm_fn aliases "$@"; }
+hypj() { pjm_fn history "$@"; }
 lspj() { pjm_fn list "$@"; }
 mvpj() { pjm_fn rename -f "$1" -t "$2"; }
 popj() { pjm_fn pop "$@"; }
@@ -140,6 +141,7 @@ pspj() { pjm_fn push -p "$@"; }
 rmpj() { pjm_fn remove --project "$@"; }
 scpj() { pjm_fn scan "$@"; }
 shpj() { pjm_fn show "$@"; }
+stpj() { pjm_fn stack "$@"; }
 
 # Group command functions
 lsgp() { pjm_fn group list "$@"; }
@@ -153,28 +155,35 @@ _pjm_projects() {
 
 # Shell-specific completion setup
 if [ -n "$ZSH_VERSION" ]; then
+    # Zsh matcher for fuzzy project name matching:
+    #   m:{[:lower:][:upper:]}={[:upper:][:lower:]}  — case-insensitive
+    #   l:|=*       — allow extra characters before the typed text in completions
+    #   r:|=*       — allow extra characters after the typed text in completions
+    # Together l:|=* and r:|=* enable substring matching (rank → sw-cl-rank-wav-rs)
+    _pjm_matcher='m:{[:lower:][:upper:]}={[:upper:][:lower:]} l:|=* r:|=*'
+
     # Zsh completion for chpj with subdirectory support
     _pjm_chpj_complete() {
         if [[ ${CURRENT} -eq 2 ]]; then
-            # First argument - complete project names
-            local projects
-            projects=(${(f)"$(pjmai-rs complete projects "${words[2]}" 2>/dev/null)"})
-            _describe 'project' projects
+            # First argument - complete project names (all names, zsh matcher filters)
+            local -a projects
+            projects=(${(f)"$(pjmai-rs complete projects 2>/dev/null)"})
+            compadd -V pjm_projects -M "$_pjm_matcher" -- "${projects[@]}"
         else
             # Subsequent arguments - complete subdirs within project
             local project="${words[2]}"
-            local subdirs
+            local -a subdirs
             subdirs=(${(f)"$(pjmai-rs complete subdirs "$project" "${words[@]:2}" 2>/dev/null)"})
-            _describe 'subdir' subdirs
+            compadd -V pjm_subdirs -- "${subdirs[@]}"
         fi
     }
     compdef _pjm_chpj_complete chpj
 
     # Zsh completion for other commands (no subdir support)
     _pjm_complete() {
-        local projects
-        projects=(${(f)"$(pjmai-rs complete projects "${words[CURRENT]}" 2>/dev/null)"})
-        _describe 'project' projects
+        local -a projects
+        projects=(${(f)"$(pjmai-rs complete projects 2>/dev/null)"})
+        compadd -V pjm_projects -M "$_pjm_matcher" -- "${projects[@]}"
     }
     compdef _pjm_complete rmpj pspj
 
@@ -183,7 +192,7 @@ elif [ -n "$BASH_VERSION" ]; then
     _pjm_chpj_complete() {
         local cur="${COMP_WORDS[COMP_CWORD]}"
         if [[ ${COMP_CWORD} -eq 1 ]]; then
-            # First argument - complete project names
+            # First argument - complete project names (Rust does prefix + case-insensitive)
             COMPREPLY=($(pjmai-rs complete projects "$cur" 2>/dev/null))
         else
             # Subsequent arguments - complete subdirs within project
