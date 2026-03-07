@@ -108,6 +108,26 @@ The install script:
 - Configures shell rc file (bash/zsh/fish)
 - Installs shell completions
 
+## Development Update
+
+For rapid development iteration, use the update script:
+
+```bash
+source update.sh
+```
+
+This script **must be sourced** (not executed) because it needs to reload shell integration in your current shell. It will:
+- Build the release binary
+- Copy `pjmai-rs` to `~/.local/bin/`
+- Copy `source-pjm.sh` to `~/.pjmai/`
+- Reload shell integration immediately
+
+If you try to execute it directly (`./update.sh` or `sh update.sh`), it will show an error:
+```
+Error: Do not run this script, source it instead:
+  source update.sh
+```
+
 ## Setup Command
 
 Auto-configure shell integration (after manual binary install):

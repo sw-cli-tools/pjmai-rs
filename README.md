@@ -603,13 +603,28 @@ cargo build
 
 ### Quick Update (Development)
 
-For rapid development iteration, use the update script which builds, installs, and reloads shell integration:
+For rapid development iteration, use the update script:
 
 ```bash
 source update.sh
 ```
 
-This must be sourced (not executed) so it can reload the shell integration in your current shell.
+This script **must be sourced** (not executed). It will:
+- Build the release binary (`cargo build --release`)
+- Install `pjmai-rs` to `~/.local/bin/`
+- Install `source-pjm.sh` to `~/.pjmai/`
+- Reload shell integration in your current shell
+
+The script enforces sourcing - if you try to execute it directly, you'll get an error:
+```
+Error: Do not run this script, source it instead:
+  source update.sh
+```
+
+Optional: install to a custom prefix:
+```bash
+source update.sh --prefix /usr/local/bin
+```
 
 ### Testing
 
