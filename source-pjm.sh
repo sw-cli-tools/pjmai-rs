@@ -126,19 +126,28 @@ srcpj() {
     fi
 }
 
+# Helper: check if args contain -h or --help
+_pjm_wants_help() {
+    for arg in "$@"; do
+        case "$arg" in -h|--help) return 0;; esac
+    done
+    return 1
+}
+
 # Command functions (work in both interactive and non-interactive shells)
-adpj() { pjm_fn add -p "$@"; }
-chpj() { pjm_fn change -p "$@"; }
+# Functions that inject flags (e.g. -p) check for -h/--help first to avoid clap errors
+adpj() { if _pjm_wants_help "$@"; then pjm_fn add --help; else pjm_fn add -p "$@"; fi; }
+chpj() { if _pjm_wants_help "$@"; then pjm_fn change --help; else pjm_fn change -p "$@"; fi; }
 ctpj() { pjm_fn context "$@"; }
-evpj() { pjm_fn env -p "$@"; }
+evpj() { if _pjm_wants_help "$@"; then pjm_fn env --help; else pjm_fn env -p "$@"; fi; }
 hlpj() { pjm_fn aliases "$@"; }
 hypj() { pjm_fn history "$@"; }
 lspj() { pjm_fn list "$@"; }
-mvpj() { pjm_fn rename -f "$1" -t "$2"; }
+mvpj() { if _pjm_wants_help "$@"; then pjm_fn rename --help; else pjm_fn rename -f "$1" -t "$2"; fi; }
 popj() { pjm_fn pop "$@"; }
 prpj() { pjm_fn prompt "$@"; }
-pspj() { pjm_fn push -p "$@"; }
-rmpj() { pjm_fn remove --project "$@"; }
+pspj() { if _pjm_wants_help "$@"; then pjm_fn push --help; else pjm_fn push -p "$@"; fi; }
+rmpj() { if _pjm_wants_help "$@"; then pjm_fn remove --help; else pjm_fn remove --project "$@"; fi; }
 scpj() { pjm_fn scan "$@"; }
 shpj() { pjm_fn show "$@"; }
 stpj() { pjm_fn stack "$@"; }

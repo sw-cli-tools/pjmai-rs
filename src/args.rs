@@ -66,11 +66,11 @@ pub struct Args {
 #[derive(Debug, PartialEq, Subcommand)]
 pub enum Subcommands {
     /// Shows help for aliases: adpj, chpj, hlpj, lspj, prpj, rmpj, shpj; alias hlpj
-    #[command(name = "aliases")]
+    #[command(name = "aliases", after_help = "Shell alias: hlpj [-h|--help]")]
     Aliases {},
 
     /// Adds a new project to the projects configuration (~/.pjmai/config.toml); alias adpj
-    #[command(name = "add", alias = "a")]
+    #[command(name = "add", alias = "a", after_help = "Shell alias: adpj [-h|--help] <NAME> -f <PATH>")]
     Add {
         /// Names the project (a short alias for the project)
         #[arg(long, short)]
@@ -99,7 +99,7 @@ pub enum Subcommands {
 
     /// Changes to the specified project (changes directory or sources file); alias chpj.
     /// Clears the push/pop stack (use pspj/popj for stack-based navigation)
-    #[command(name = "change", alias = "c")]
+    #[command(name = "change", alias = "c", after_help = "Shell alias: chpj [-h|--help] <PROJECT> [SUBDIRS...]")]
     Change {
         /// Project to switch to
         #[arg(long, short)]
@@ -127,7 +127,7 @@ pub enum Subcommands {
     },
 
     /// Lists the previously added projects; alias lspj
-    #[command(name = "list", alias = "l")]
+    #[command(name = "list", alias = "l", after_help = "Shell alias: lspj [-h|--help] [--tag TAG] [--group GROUP] [--recent]")]
     List {
         /// Filter by tag
         #[arg(long, short)]
@@ -143,7 +143,7 @@ pub enum Subcommands {
     },
 
     /// Output project context for AI agents; alias ctpj
-    #[command(name = "context")]
+    #[command(name = "context", after_help = "Shell alias: ctpj [-h|--help] [-p PROJECT] [--for-agent]")]
     Context {
         /// Project to show context for (defaults to current)
         #[arg(long, short)]
@@ -201,15 +201,15 @@ pub enum Subcommands {
     /// Pop from project stack and switch to the popped project; alias popj.
     /// Shows which project is being restored and remaining stack depth.
     /// No-op with warning if stack is empty
-    #[command(name = "pop")]
+    #[command(name = "pop", after_help = "Shell alias: popj [-h|--help]")]
     Pop {},
 
     /// Prompt string for previously changed-to project; alias prpj
-    #[command(name = "prompt", alias = "p")]
+    #[command(name = "prompt", alias = "p", after_help = "Shell alias: prpj [-h|--help]")]
     Prompt {},
 
     /// Push current project to stack and switch to specified project; alias pspj
-    #[command(name = "push")]
+    #[command(name = "push", after_help = "Shell alias: pspj [-h|--help] <PROJECT>")]
     Push {
         /// Project to switch to (current project is pushed to stack)
         #[arg(long, short)]
@@ -217,7 +217,7 @@ pub enum Subcommands {
     },
 
     /// Manage the project stack (defaults to show); alias stpj
-    #[command(name = "stack")]
+    #[command(name = "stack", after_help = "Shell alias: stpj [-h|--help] [show|clear]")]
     Stack {
         /// Stack action (defaults to show)
         #[command(subcommand)]
@@ -226,7 +226,7 @@ pub enum Subcommands {
 
     /// Removes a previously created project from the projects configuration; alias rmpj.
     /// Use --all to remove all projects (prompts for confirmation unless -y is passed)
-    #[command(name = "remove", alias = "r")]
+    #[command(name = "remove", alias = "r", after_help = "Shell alias: rmpj [-h|--help] <PROJECT> [--all]")]
     Remove {
         /// Removes project with this name
         #[arg(long, short, required_unless_present = "all")]
@@ -242,7 +242,7 @@ pub enum Subcommands {
     },
 
     /// Rename a project's nickname; alias mvpj
-    #[command(name = "rename", alias = "mv")]
+    #[command(name = "rename", alias = "mv", after_help = "Shell alias: mvpj [-h|--help] <OLD_NAME> <NEW_NAME>")]
     Rename {
         /// Current project name
         #[arg(long, short)]
@@ -254,7 +254,7 @@ pub enum Subcommands {
     },
 
     /// Shows the previously changed-to project; alias shpj
-    #[command(name = "show", alias = "s")]
+    #[command(name = "show", alias = "s", after_help = "Shell alias: shpj [-h|--help]")]
     Show {},
 
     /// Configure shell integration (adds to shell rc file and installs completions)
@@ -285,8 +285,8 @@ pub enum Subcommands {
         action: ConfigAction,
     },
 
-    /// Manage project environment configuration
-    #[command(name = "env")]
+    /// Manage project environment configuration; alias evpj
+    #[command(name = "env", after_help = "Shell alias: evpj [-h|--help] <PROJECT> <SUBCOMMAND>")]
     Env {
         /// Project name
         #[arg(long, short)]
@@ -298,7 +298,7 @@ pub enum Subcommands {
     },
 
     /// Scan directories for git repositories and add them as projects; alias scpj
-    #[command(name = "scan")]
+    #[command(name = "scan", after_help = "Shell alias: scpj [-h|--help] [DIR] [--depth N] [--reset]")]
     Scan {
         /// Starting directory to scan (default: ~/)
         #[arg(default_value = "~")]
@@ -337,7 +337,7 @@ pub enum Subcommands {
     ///
     /// With no arguments, shows numbered history (most recent last).
     /// With an index, jumps to that project (like shell !nn).
-    #[command(name = "history")]
+    #[command(name = "history", after_help = "Shell alias: hypj [-h|--help] [INDEX]")]
     History {
         /// History entry index to jump to (from `hypj` output)
         index: Option<usize>,
