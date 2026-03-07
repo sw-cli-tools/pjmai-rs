@@ -6,6 +6,13 @@ A Rust CLI tool for managing and quickly switching between projects via shell al
 
 PJMAI-RS helps developers manage multiple projects by maintaining a registry of project directories and files. It integrates with your shell to enable quick project switching with short commands, and supports per-project environment configuration.
 
+## Resources
+
+- [Introducing PJMAI-RS](http://localhost:5907/2026/03/05/tbt-pjmai-rs-project-manager/) — blog post with overview and walkthrough
+- [Navigation History & Fuzzy Completion](http://localhost:5907/2026/03/07/pjmai-rs-navigation-history-and-fuzzy-completion/) — blog post on latest features
+- [Demo Video](https://www.youtube.com/watch?v=4eWyhWjF3dg) — see pjmai-rs in action
+- [Discord](https://discord.com/invite/Ctzk5uHggZ) — community chat and support
+
 ## Installation
 
 ### Quick Install (Recommended)
