@@ -8,8 +8,8 @@ PJMAI-RS helps developers manage multiple projects by maintaining a registry of 
 
 ## Resources
 
-- [Introducing PJMAI-RS](http://localhost:5907/2026/03/05/tbt-pjmai-rs-project-manager/) — blog post with overview and walkthrough
-- [Navigation History & Fuzzy Completion](http://localhost:5907/2026/03/07/pjmai-rs-navigation-history-and-fuzzy-completion/) — blog post on latest features
+- [Introducing PJMAI-RS](https://software-wrighter-lab.github.io/2026/03/05/tbt-pjmai-rs-project-manager/) — blog post with overview and walkthrough
+- [Navigation History & Fuzzy Completion](https://software-wrighter-lab.github.io/2026/03/07/pjmai-rs-navigation-history-and-fuzzy-completion/) — blog post on latest features
 - [Demo Video](https://www.youtube.com/watch?v=4eWyhWjF3dg) — see pjmai-rs in action
 - [Discord](https://discord.com/invite/Ctzk5uHggZ) — community chat and support
 
@@ -699,6 +699,22 @@ Available demos:
 - `scan-workflow.tape` - Scanning for git repos, renaming, and removing projects
 - `prompt-integration.tape` - Shell prompt with push/pop stack navigation
 - `env-approval.tape` - Secure .pjmai.sh environment file approval workflow
+
+## Historical Context
+
+The core idea — giving projects nicknames and switching fast — dates back to the 1980s. The concept evolved through several eras, from academic software project management systems to modern Rust CLI tooling with AI agent support.
+
+For the full story, see the [Historical Context](https://software-wrighter-lab.github.io/2026/03/05/tbt-pjmai-rs-project-manager/#historical-context) section of the introductory blog post.
+
+### References
+
+| Era | Resource | Description |
+|-----|----------|-------------|
+| 1980s | [4.3BSD SPMS README](https://www.tuhs.org/cgi-bin/utree.pl?file=4.3BSD%2Fusr%2Fcontrib%2Fspms%2FREADME) | BSD Software Project Management System |
+| 1980s | [CMU SEI SCM](https://www.sei.cmu.edu/documents/5920/Support_Materials_for_Software_Configuration_Management.pdf) | Support Materials for Software Configuration Management |
+| 2013 | [vspms](https://github.com/rustt/vspms) | Shell scripts by Russ Tremain that inspired the `chpj`-style workflow |
+
+> **Note:** The `chpj`-style commands were informal add-ons shared between developers, not part of the official SPMS distribution. Documentation from that era is hard to find online.
 
 ## License
 
