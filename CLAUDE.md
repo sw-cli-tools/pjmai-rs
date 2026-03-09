@@ -73,8 +73,9 @@ This outputs to stderr:
 
 After sourcing `source-pjm.sh` (or running `pjmai setup`):
 - `adpj` - Add project
-- `chpj` - Change to project (clears push/pop stack)
+- `chpj` - Change to project (clears push/pop stack; `--push` to push instead)
 - `ctpj` - Show project context
+- `edpj` - Edit project properties (description, language, group, pin/unpin)
 - `evpj` - Manage project environment config
 - `hlpj` - Show all aliases
 - `hypj` - Show or jump to navigation history
@@ -83,10 +84,12 @@ After sourcing `source-pjm.sh` (or running `pjmai setup`):
 - `popj` - Pop from project stack (shows destination)
 - `prpj` - Get project name for shell prompt
 - `pspj` - Push to stack and switch project
+- `qypj` - Check if a project nickname exists (exits 0/1)
 - `rmpj` - Remove project (supports `--all`)
-- `scpj` - Scan for git repositories (supports `--reset`)
+- `scpj` - Scan for git repositories (supports `--reset`, auto-sources pinned.sh)
 - `shpj` - Show current project
 - `stpj` - Show or clear project stack
+- `xppj` - Export project paths as shell named directories
 - `srcpj` - Source and approve .pjmai.sh
 
 ## Installation
@@ -171,9 +174,15 @@ pjmai scan ~/code              # Scan with default depth (3)
 pjmai scan ~/github --depth 4  # Deeper scan
 pjmai scan ~/code --dry-run    # Preview without adding
 pjmai scan --ignore tmp,cache  # Skip directories
+scpj --reset -y ~/github       # Fresh re-scan (preserves metadata)
 ```
 
-Parses git remote origin URLs (including SSH aliases like `github.com-work`) to group by host/owner.
+Features:
+- Parses git remote origin URLs (including SSH aliases like `github.com-work`) to group by host/owner
+- Auto-detects languages (e.g., `rust`, `python`, `rust+python` for polyglot projects)
+- `--reset` preserves user metadata (descriptions, tags, notes, last_used, env config)
+- Creates timestamped backups before destructive operations
+- `-y` flag on scan subcommand skips all confirmation prompts
 
 ## Fast Tab Completion
 
@@ -193,6 +202,18 @@ The `source-pjm.sh` script uses this for dynamic tab completion on `chpj`, `rmpj
 - `chpj SW<TAB>` finds `sw-*` projects (case-insensitive)
 
 **Bash completion** uses prefix + case-insensitive matching via the Rust binary.
+
+## Listing and Filtering
+
+```bash
+pjmai list                  # Alphabetical (default)
+pjmai list --long           # Extended info (language, description, tags)
+pjmai list --tag rust       # Filter by tag
+pjmai list --group work     # Filter by group ("." for current group)
+pjmai list --lang rust      # Filter by language (matches polyglot "rust+python")
+pjmai list --recent         # Sort by recently used (chpj/pspj/popj)
+pjmai list --modified       # Sort by filesystem modification time
+```
 
 ## Fuzzy Matching
 
@@ -215,7 +236,7 @@ pjmai stack clear        # Clear the stack (prompts for confirmation)
 pjmai stack clear -y     # Clear without prompting
 ```
 
-`chpj` clears the stack automatically (non-stack navigation abandons the push/pop workflow).
+`chpj` clears the stack automatically (non-stack navigation abandons the push/pop workflow). Use `chpj --push` for stack-based navigation with chpj features (subdirs, env setup).
 
 ## Subdirectory Navigation
 
@@ -246,4 +267,52 @@ Errors are reported if the subdirectory doesn't exist or is a file:
 ```bash
 chpj myproject nonexistent       # Error: subdirectory 'nonexistent' not found
 chpj myproject README.md         # Error: 'README.md' is a file, not a directory
+```
+
+## Query Command
+
+Check if a project nickname exists (for use in scripts):
+
+```bash
+pjmai query -p myproject         # Exits 0 if found, 1 if not
+qypj myproject                   # Shell alias
+
+# Conditional add in scripts or ~/.pjmai/pinned.sh:
+qypj shared-images 2>/dev/null || adpj shared-images -f ~/Dropbox/shared/images
+```
+
+## Exports (Named Directories)
+
+Export project paths for cross-project file operations:
+
+```bash
+eval "$(pjmai exports)"          # Zsh: hash -d for all projects
+eval "$(xppj)"                   # Same via alias
+
+# Then use ~nickname/path syntax (with tab completion):
+ls ~pjmai-rs/src/
+cp ~proj-a/README.md ~proj-b/
+vim ~mylib/src/main.rs
+
+# Bash/Fish alternatives:
+eval "$(pjmai exports --format bash)"   # PJMAI_* env vars
+eval "$(pjmai exports --format fish)"   # fish set -gx
+```
+
+## Pinned Projects
+
+Custom projects that survive `scan --reset`:
+
+```bash
+# Add with --pinned flag (auto-appends to ~/.pjmai/pinned.sh)
+adpj shared-images -f ~/Dropbox/shared/images --pinned
+
+# Or manually create ~/.pjmai/pinned.sh:
+qypj shared-images 2>/dev/null || adpj shared-images -f ~/Dropbox/shared/images
+
+# Pin/unpin existing projects via edit:
+edpj webapp --pin
+edpj webapp --unpin
+
+# Auto-sourced after scpj (including scpj --reset)
 ```

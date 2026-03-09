@@ -70,13 +70,17 @@ pub enum Subcommands {
     Aliases {},
 
     /// Adds a new project to the projects configuration (~/.pjmai/config.toml); alias adpj
-    #[command(name = "add", alias = "a", after_help = "Shell alias: adpj [-h|--help] <NAME> -f <PATH>")]
+    #[command(
+        name = "add",
+        alias = "a",
+        after_help = "Shell alias usage (note: -p is added automatically by adpj):\n  adpj <NAME> -f <PATH> [--pinned]\n  adpj myproject -f ~/code/myproject\n  adpj shared-imgs -f ~/Dropbox/images --pinned"
+    )]
     Add {
         /// Names the project (a short alias for the project)
         #[arg(long, short)]
         project: ProjectName,
 
-        /// File name to be sourced for project (e.g., to set environment variables)
+        /// Project directory or file path (directory: cd on switch; file: source on switch)
         #[arg(long, short)]
         file_or_dir: ProjectPath,
 
@@ -95,15 +99,27 @@ pub enum Subcommands {
         /// Project group (e.g., "work", "personal", "oss")
         #[arg(long, short = 'g')]
         group: Option<String>,
+
+        /// Pin this project so it survives scan --reset (appends to ~/.pjmai/pinned.sh)
+        #[arg(long)]
+        pinned: bool,
     },
 
     /// Changes to the specified project (changes directory or sources file); alias chpj.
-    /// Clears the push/pop stack (use pspj/popj for stack-based navigation)
-    #[command(name = "change", alias = "c", after_help = "Shell alias: chpj [-h|--help] <PROJECT> [SUBDIRS...]")]
+    /// Clears the push/pop stack (use pspj/popj or chpj --push for stack-based navigation)
+    #[command(
+        name = "change",
+        alias = "c",
+        after_help = "Shell alias: chpj [-h|--help] [--push] <PROJECT> [SUBDIRS...]"
+    )]
     Change {
         /// Project to switch to
         #[arg(long, short)]
         project: ProjectName,
+
+        /// Push current project to stack before switching (like pspj but with chpj features)
+        #[arg(long)]
+        push: bool,
 
         /// Subdirectory path(s) within the project (supports both space and slash syntax)
         #[arg(trailing_var_arg = true)]
@@ -127,7 +143,11 @@ pub enum Subcommands {
     },
 
     /// Lists the previously added projects; alias lspj
-    #[command(name = "list", alias = "l", after_help = "Shell alias: lspj [-h|--help] [--tag TAG] [--group GROUP] [--recent]")]
+    #[command(
+        name = "list",
+        alias = "l",
+        after_help = "Shell alias: lspj [-h|--help] [--tag TAG] [--group GROUP] [--lang LANG] [--recent] [--modified] [--long]"
+    )]
     List {
         /// Filter by tag
         #[arg(long, short)]
@@ -137,13 +157,28 @@ pub enum Subcommands {
         #[arg(long, short)]
         group: Option<String>,
 
+        /// Filter by language (e.g., rust, python, javascript)
+        #[arg(long, short = 'L')]
+        lang: Option<String>,
+
+        /// Show extended info (description, language, tags)
+        #[arg(long)]
+        long: bool,
+
+        /// Sort by most recently modified files in the project directory
+        #[arg(long, short = 'm', conflicts_with = "recent")]
+        modified: bool,
+
         /// Sort by recently used
         #[arg(long, short)]
         recent: bool,
     },
 
     /// Output project context for AI agents; alias ctpj
-    #[command(name = "context", after_help = "Shell alias: ctpj [-h|--help] [-p PROJECT] [--for-agent]")]
+    #[command(
+        name = "context",
+        after_help = "Shell alias: ctpj [-h|--help] [-p PROJECT] [--for-agent]"
+    )]
     Context {
         /// Project to show context for (defaults to current)
         #[arg(long, short)]
@@ -178,9 +213,13 @@ pub enum Subcommands {
         action: TagAction,
     },
 
-    /// Update project metadata
-    #[command(name = "meta")]
-    Meta {
+    /// Edit project properties (description, language, group, pinned state); alias edpj
+    #[command(
+        name = "edit",
+        alias = "meta",
+        after_help = "Shell alias usage (note: -p is added automatically by edpj):\n  edpj <PROJECT> [-D DESC] [-L LANG] [-g GROUP] [--pin] [--unpin]\n  edpj myproject -D \"My cool project\" -L rust\n  edpj myproject --pin"
+    )]
+    Edit {
         /// Project name
         #[arg(long, short)]
         project: ProjectName,
@@ -196,6 +235,14 @@ pub enum Subcommands {
         /// Set group
         #[arg(long, short = 'g')]
         group: Option<String>,
+
+        /// Pin this project (survives scan --reset)
+        #[arg(long, conflicts_with = "unpin")]
+        pin: bool,
+
+        /// Unpin this project
+        #[arg(long, conflicts_with = "pin")]
+        unpin: bool,
     },
 
     /// Pop from project stack and switch to the popped project; alias popj.
@@ -205,7 +252,11 @@ pub enum Subcommands {
     Pop {},
 
     /// Prompt string for previously changed-to project; alias prpj
-    #[command(name = "prompt", alias = "p", after_help = "Shell alias: prpj [-h|--help]")]
+    #[command(
+        name = "prompt",
+        alias = "p",
+        after_help = "Shell alias: prpj [-h|--help]"
+    )]
     Prompt {},
 
     /// Push current project to stack and switch to specified project; alias pspj
@@ -217,7 +268,10 @@ pub enum Subcommands {
     },
 
     /// Manage the project stack (defaults to show); alias stpj
-    #[command(name = "stack", after_help = "Shell alias: stpj [-h|--help] [show|clear]")]
+    #[command(
+        name = "stack",
+        after_help = "Shell alias: stpj [-h|--help] [show|clear]"
+    )]
     Stack {
         /// Stack action (defaults to show)
         #[command(subcommand)]
@@ -226,7 +280,11 @@ pub enum Subcommands {
 
     /// Removes a previously created project from the projects configuration; alias rmpj.
     /// Use --all to remove all projects (prompts for confirmation unless -y is passed)
-    #[command(name = "remove", alias = "r", after_help = "Shell alias: rmpj [-h|--help] <PROJECT> [--all]")]
+    #[command(
+        name = "remove",
+        alias = "r",
+        after_help = "Shell alias: rmpj [-h|--help] <PROJECT> [--all]"
+    )]
     Remove {
         /// Removes project with this name
         #[arg(long, short, required_unless_present = "all")]
@@ -242,7 +300,11 @@ pub enum Subcommands {
     },
 
     /// Rename a project's nickname; alias mvpj
-    #[command(name = "rename", alias = "mv", after_help = "Shell alias: mvpj [-h|--help] <OLD_NAME> <NEW_NAME>")]
+    #[command(
+        name = "rename",
+        alias = "mv",
+        after_help = "Shell alias: mvpj [-h|--help] <OLD_NAME> <NEW_NAME>"
+    )]
     Rename {
         /// Current project name
         #[arg(long, short)]
@@ -254,7 +316,11 @@ pub enum Subcommands {
     },
 
     /// Shows the previously changed-to project; alias shpj
-    #[command(name = "show", alias = "s", after_help = "Shell alias: shpj [-h|--help]")]
+    #[command(
+        name = "show",
+        alias = "s",
+        after_help = "Shell alias: shpj [-h|--help]"
+    )]
     Show {},
 
     /// Configure shell integration (adds to shell rc file and installs completions)
@@ -286,7 +352,10 @@ pub enum Subcommands {
     },
 
     /// Manage project environment configuration; alias evpj
-    #[command(name = "env", after_help = "Shell alias: evpj [-h|--help] <PROJECT> <SUBCOMMAND>")]
+    #[command(
+        name = "env",
+        after_help = "Shell alias: evpj [-h|--help] <PROJECT> <SUBCOMMAND>"
+    )]
     Env {
         /// Project name
         #[arg(long, short)]
@@ -298,7 +367,10 @@ pub enum Subcommands {
     },
 
     /// Scan directories for git repositories and add them as projects; alias scpj
-    #[command(name = "scan", after_help = "Shell alias: scpj [-h|--help] [DIR] [--depth N] [--reset]")]
+    #[command(
+        name = "scan",
+        after_help = "Shell alias: scpj [-h|--help] [DIR] [--depth N] [--reset] [-y]"
+    )]
     Scan {
         /// Starting directory to scan (default: ~/)
         #[arg(default_value = "~")]
@@ -323,6 +395,10 @@ pub enum Subcommands {
         /// Clear all existing projects before scanning (fresh re-scan)
         #[arg(long)]
         reset: bool,
+
+        /// Skip all confirmation prompts (for --reset and add-all)
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
 
     /// Manage project groups (inferred from directory structure)
@@ -341,6 +417,31 @@ pub enum Subcommands {
     History {
         /// History entry index to jump to (from `hypj` output)
         index: Option<usize>,
+    },
+
+    /// Check if a project nickname exists in the registry; alias qypj.
+    /// Exits 0 if found, 1 if not found. Useful for conditional adds in scripts
+    #[command(
+        name = "query",
+        alias = "q",
+        after_help = "Shell alias: qypj [-h|--help] <PROJECT>"
+    )]
+    Query {
+        /// Project nickname to check
+        #[arg(long, short)]
+        project: ProjectName,
+    },
+
+    /// Export project paths as shell named directories (hash -d); alias xppj.
+    /// Enables ~nickname/path syntax for cross-project file operations
+    #[command(
+        name = "exports",
+        after_help = "Shell alias: xppj [-h|--help] [--format FORMAT]"
+    )]
+    Exports {
+        /// Output format: zsh (hash -d), bash (export), or fish (set -gx)
+        #[arg(long, short, default_value = "zsh")]
+        format: String,
     },
 }
 
@@ -626,6 +727,7 @@ mod tests {
                     tags: None,
                     language: None,
                     group: None,
+                    pinned: false,
                 },
                 debug: false,
                 json: false,
@@ -647,6 +749,7 @@ mod tests {
                     tags: None,
                     language: None,
                     group: None,
+                    pinned: false,
                 },
                 debug: false,
                 json: false,
@@ -663,6 +766,7 @@ mod tests {
             Args {
                 command: Subcommands::Change {
                     project: "myproject".to_string(),
+                    push: false,
                     subdirs: vec![],
                 },
                 debug: false,
@@ -680,6 +784,7 @@ mod tests {
             Args {
                 command: Subcommands::Change {
                     project: "foo".to_string(),
+                    push: false,
                     subdirs: vec![],
                 },
                 debug: false,
@@ -697,6 +802,7 @@ mod tests {
             Args {
                 command: Subcommands::Change {
                     project: "myproj".to_string(),
+                    push: false,
                     subdirs: vec!["src".to_string(), "lib".to_string()],
                 },
                 debug: false,
@@ -709,12 +815,33 @@ mod tests {
     }
 
     #[test]
+    fn test_change_with_push() {
+        assert_eq!(
+            Args {
+                command: Subcommands::Change {
+                    project: "hotfix".to_string(),
+                    push: true,
+                    subdirs: vec![],
+                },
+                debug: false,
+                json: false,
+                logging: false,
+                yes: false,
+            },
+            Args::try_parse_from(["test", "change", "--push", "-p", "hotfix"]).unwrap()
+        );
+    }
+
+    #[test]
     fn test_list() {
         assert_eq!(
             Args {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -733,6 +860,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -857,6 +987,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -875,6 +1008,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -899,6 +1035,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -917,6 +1056,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -935,6 +1077,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,
@@ -953,6 +1098,9 @@ mod tests {
                 command: Subcommands::List {
                     tag: None,
                     group: None,
+                    lang: None,
+                    long: false,
+                    modified: false,
                     recent: false,
                 },
                 debug: false,

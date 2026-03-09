@@ -1,7 +1,7 @@
+use crate::PjmConfig;
 use crate::args;
 use crate::error::Result;
 use crate::util;
-use crate::PjmConfig;
 use colored::Colorize;
 use log::info;
 
@@ -87,11 +87,7 @@ fn print_debug_info(pjm_config: &PjmConfig) {
                     registry.current_project.green()
                 );
             } else {
-                eprintln!(
-                    "{}: {}",
-                    "Current project".cyan(),
-                    "(none)".dimmed()
-                );
+                eprintln!("{}: {}", "Current project".cyan(), "(none)".dimmed());
             }
 
             // List projects

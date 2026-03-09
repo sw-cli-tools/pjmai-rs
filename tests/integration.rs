@@ -3,8 +3,8 @@
 //! These tests use a temporary config directory via the PJMAI_CONFIG_DIR environment variable
 //! to ensure tests don't affect the user's actual configuration.
 
-use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 use tempfile::TempDir;
@@ -66,20 +66,15 @@ project = []
     .unwrap();
 
     pjmai_cmd(&temp_dir)
-        .args([
-            "add",
-            "-p",
-            "test",
-            "-f",
-            project_dir.to_str().unwrap(),
-        ])
+        .args(["add", "-p", "test", "-f", project_dir.to_str().unwrap()])
         .assert()
         .success();
 
-    // Verify the project was added
+    // Verify the project was added (canonicalize expected path since add resolves absolute paths)
     let config = read_config(&temp_dir);
     assert!(config.contains("name = \"test\""));
-    assert!(config.contains(&format!("file_or_dir = \"{}\"", project_dir.display())));
+    let canonical_dir = fs::canonicalize(&project_dir).unwrap();
+    assert!(config.contains(&format!("file_or_dir = \"{}\"", canonical_dir.display())));
     // First project should become current
     assert!(config.contains("current_project = \"test\""));
 }
@@ -310,7 +305,13 @@ project = []
     );
 
     pjmai_cmd(&temp_dir)
-        .args(["add", "-p", "bad", "-f", "/nonexistent/path/that/does/not/exist"])
+        .args([
+            "add",
+            "-p",
+            "bad",
+            "-f",
+            "/nonexistent/path/that/does/not/exist",
+        ])
         .assert()
         .failure()
         .stderr(predicate::str::contains("does not exist"));
@@ -959,7 +960,12 @@ file_or_dir = "/tmp/imported"
 
     // Dry run should succeed and show what would be imported
     pjmai_cmd(&temp_dir)
-        .args(["config", "import", "--dry-run", import_file.to_str().unwrap()])
+        .args([
+            "config",
+            "import",
+            "--dry-run",
+            import_file.to_str().unwrap(),
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("Would import"))
@@ -1522,7 +1528,9 @@ MY_VAR = "value"
         .stdout(predicate::str::contains("cd '"))
         // PATH prepend comes first
         .stdout(predicate::str::contains("export PATH='./bin':\"$PATH\""))
-        .stdout(predicate::str::contains("export PATH='./.venv/bin':\"$PATH\""))
+        .stdout(predicate::str::contains(
+            "export PATH='./.venv/bin':\"$PATH\"",
+        ))
         // Then env vars
         .stdout(predicate::str::contains("export MY_VAR='value'"))
         // Then on_exit storage
@@ -1965,7 +1973,9 @@ file_or_dir = "{}"
         .args(["group", "alias", "longname", "short"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Set alias 'short' for group 'longname'"));
+        .stdout(predicate::str::contains(
+            "Set alias 'short' for group 'longname'",
+        ));
 
     // List aliases
     pjmai_cmd(&temp_dir)
@@ -2010,7 +2020,9 @@ file_or_dir = "{}"
         .args(["group", "alias", "testgroup", "--remove"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Removed alias for group 'testgroup'"));
+        .stdout(predicate::str::contains(
+            "Removed alias for group 'testgroup'",
+        ));
 
     // Verify alias is removed from config
     let config = read_config(&temp_dir);
@@ -2092,7 +2104,11 @@ file_or_dir = "{}"
         .assert()
         .success()
         .stdout(predicate::str::contains("proj1"))
-        .stdout(predicate::str::contains("group1").not().or(predicate::str::contains("Projects in group")));
+        .stdout(
+            predicate::str::contains("group1")
+                .not()
+                .or(predicate::str::contains("Projects in group")),
+        );
 
     // Verify proj2 is not in output when filtering by group1
     let output = pjmai_cmd(&temp_dir)
@@ -2238,7 +2254,9 @@ file_or_dir = "{}"
         .args(["change", "-p", "myproj", "nonexistent"])
         .assert()
         .code(4)
-        .stdout(predicate::str::contains("subdirectory 'nonexistent' not found"));
+        .stdout(predicate::str::contains(
+            "subdirectory 'nonexistent' not found",
+        ));
 }
 
 #[test]
@@ -2407,4 +2425,359 @@ file_or_dir = "{}"
         .success()
         .stdout(predicate::str::contains("src/lib"))
         .stdout(predicate::str::contains("src/bin"));
+}
+
+// ============================================================
+// Query command tests
+// ============================================================
+
+#[test]
+fn test_query_existing_project() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["query", "-p", "myproject"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_query_nonexistent_project() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["query", "-p", "nonexistent"])
+        .assert()
+        .code(1);
+}
+
+#[test]
+fn test_query_json_found() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "query", "-p", "myproject"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""found": true"#))
+        .stdout(predicate::str::contains(r#""project": "myproject""#));
+}
+
+#[test]
+fn test_query_json_not_found() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "query", "-p", "nonexistent"])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(r#""found": false"#));
+}
+
+// ============================================================
+// Exports command tests
+// ============================================================
+
+#[test]
+fn test_exports_zsh_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["exports"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("hash -d myproject="));
+}
+
+#[test]
+fn test_exports_bash_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("my-project");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "my-project"
+
+[[project]]
+name = "my-project"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["exports", "--format", "bash"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("export PJMAI_MY_PROJECT="));
+}
+
+#[test]
+fn test_exports_fish_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["exports", "--format", "fish"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("set -gx PJMAI_MYPROJECT"));
+}
+
+#[test]
+fn test_exports_json() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["--json", "exports"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""format": "zsh""#))
+        .stdout(predicate::str::contains(r#""name": "myproject""#));
+}
+
+#[test]
+fn test_exports_invalid_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        format!(
+            r#"version = "0.1.0"
+current_project = "myproject"
+
+[[project]]
+name = "myproject"
+
+[project.action]
+file_or_dir = "{}"
+"#,
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args(["exports", "--format", "invalid"])
+        .assert()
+        .code(1);
+}
+
+#[test]
+fn test_exports_empty_registry() {
+    let temp_dir = setup_with_config(
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    );
+
+    pjmai_cmd(&temp_dir)
+        .args(["exports"])
+        .assert()
+        .success()
+        .stdout("");
+}
+
+// ============================================================
+// Add --pinned flag tests
+// ============================================================
+
+#[test]
+fn test_add_pinned_creates_pinned_sh() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    // Initialize empty config
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args([
+            "add",
+            "-p",
+            "myproject",
+            "-f",
+            &proj_dir.display().to_string(),
+            "--pinned",
+        ])
+        .assert()
+        .success();
+
+    // Verify pinned.sh was created with the right content
+    let pinned_path = temp_dir.path().join("pinned.sh");
+    assert!(pinned_path.exists(), "pinned.sh should be created");
+    let contents = fs::read_to_string(&pinned_path).unwrap();
+    assert!(
+        contents.contains("qypj myproject"),
+        "pinned.sh should contain qypj check"
+    );
+    assert!(
+        contents.contains("adpj myproject"),
+        "pinned.sh should contain adpj command"
+    );
+}
+
+#[test]
+fn test_add_pinned_does_not_duplicate() {
+    let temp_dir = TempDir::new().unwrap();
+    let proj_dir = temp_dir.path().join("myproject");
+    fs::create_dir(&proj_dir).unwrap();
+
+    // Pre-create pinned.sh with existing entry
+    fs::write(
+        temp_dir.path().join("pinned.sh"),
+        format!(
+            "qypj myproject 2>/dev/null || adpj myproject -f {}\n",
+            proj_dir.display()
+        ),
+    )
+    .unwrap();
+
+    // Initialize config
+    fs::write(
+        temp_dir.path().join("config.toml"),
+        r#"version = "0.1.0"
+current_project = ""
+project = []
+"#,
+    )
+    .unwrap();
+
+    pjmai_cmd(&temp_dir)
+        .args([
+            "add",
+            "-p",
+            "myproject",
+            "-f",
+            &proj_dir.display().to_string(),
+            "--pinned",
+        ])
+        .assert()
+        .success();
+
+    // Verify no duplication
+    let contents = fs::read_to_string(temp_dir.path().join("pinned.sh")).unwrap();
+    let count = contents.matches("adpj myproject").count();
+    assert_eq!(count, 1, "pinned.sh should not have duplicate entries");
 }

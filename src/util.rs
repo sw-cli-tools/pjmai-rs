@@ -26,7 +26,10 @@ pub fn check(assume_yes: bool) -> Result<()> {
 
     // Create config directory if it doesn't exist
     if !is_file_found(&config.config_dir) {
-        info!("config directory not found, creating: {}", &config.config_dir);
+        info!(
+            "config directory not found, creating: {}",
+            &config.config_dir
+        );
         std::fs::create_dir_all(&config.config_dir)
             .map_err(|e| PjmError::ConfigDirCreation(config.config_dir.clone(), e))?;
     }
@@ -60,7 +63,9 @@ pub fn expand_file_path(file_path: &str) -> ProjectPath {
 /// Determine if a path is a file or a directory
 pub fn is_file_dir(file_path: &str) -> bool {
     info!("is file dir? {}", &file_path);
-    std::fs::metadata(file_path).unwrap().is_dir()
+    std::fs::metadata(file_path)
+        .map(|m| m.is_dir())
+        .unwrap_or(false)
 }
 
 /// Determine if the file or directory exists
@@ -86,7 +91,9 @@ pub fn save_config_toml(projects_string: &str) -> Result<()> {
 pub fn shorten_path(long_path: &str) -> String {
     info!("shorten_path {}", &long_path);
     let home = std::env::var("HOME").unwrap_or_default();
-    if !home.is_empty() && let Some(suffix) = long_path.strip_prefix(&home) {
+    if !home.is_empty()
+        && let Some(suffix) = long_path.strip_prefix(&home)
+    {
         return format!("~{}", suffix);
     }
     long_path.to_string()

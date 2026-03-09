@@ -174,8 +174,17 @@ lspj --tag python
 # Filter by group
 lspj --group work
 
+# Filter by language
+lspj --lang rust
+
+# Extended info (language, description, tags)
+lspj --long
+
 # Sort by recently used
 lspj --recent
+
+# Sort by filesystem modification time
+lspj --modified
 ```
 
 The `>` marker shows your current project.
@@ -224,7 +233,7 @@ mvpj oldname newname
 
 Sometimes you need to quickly check another project and come back. Use push/pop:
 
-**Push:** `pspj` - Save current project and switch
+**Push:** `pspj` (or `chpj --push`) - Save current project and switch
 **Pop:** `popj` - Return to the saved project
 
 ```bash
@@ -233,6 +242,8 @@ chpj webapp
 
 # Quick detour to check something in backend
 pspj backend    # Pushes webapp to stack, switches to backend
+# — or equivalently —
+chpj --push backend   # Same thing, with chpj features (subdirs, env setup)
 
 # Done checking, return to webapp
 popj            # Pops webapp from stack, switches back
@@ -324,15 +335,25 @@ pjmai note -p webapp remove 1
 pjmai note -p webapp clear
 ```
 
-### Metadata Updates
+### Editing Project Properties
 
-Update project metadata:
+**Alias:** `edpj`
+**Full command:** `pjmai edit`
+
+Update project metadata after adding:
 
 ```bash
-pjmai meta -p webapp \
-  --description "Customer-facing web portal" \
-  --language typescript \
-  --group work
+# Set description and language
+edpj webapp -D "Customer-facing web portal" -L typescript
+
+# Set group
+edpj webapp -g work
+
+# Pin a project (survives scan --reset)
+edpj webapp --pin
+
+# Unpin
+edpj webapp --unpin
 ```
 
 ---
@@ -591,8 +612,9 @@ After installing PJMAI, you get these short aliases:
 | Alias | Command | Description |
 |-------|---------|-------------|
 | `adpj` | `pjmai add` | Add a new project |
-| `chpj` | `pjmai change` | Switch to a project (clears stack) |
+| `chpj` | `pjmai change` | Switch to a project (clears stack; `--push` to push instead) |
 | `ctpj` | `pjmai context` | Show project context (for AI) |
+| `edpj` | `pjmai edit` | Edit project properties (description, language, pin) |
 | `evpj` | `pjmai env` | Manage environment config |
 | `hlpj` | `pjmai aliases` | Show all aliases |
 | `hypj` | `pjmai history` | Show or jump to navigation history |
@@ -601,10 +623,12 @@ After installing PJMAI, you get these short aliases:
 | `popj` | `pjmai pop` | Pop from project stack |
 | `prpj` | `pjmai prompt` | Get current project for prompt |
 | `pspj` | `pjmai push` | Push and switch project |
+| `qypj` | `pjmai query` | Check if project exists (exit 0/1) |
 | `rmpj` | `pjmai remove` | Remove a project (`--all` supported) |
 | `scpj` | `pjmai scan` | Scan for git repos (`--reset` supported) |
 | `shpj` | `pjmai show` | Show current project |
 | `stpj` | `pjmai stack` | Show or clear project stack |
+| `xppj` | `pjmai exports` | Export paths as named directories |
 | `srcpj` | (shell function) | Source and approve `.pjmai.sh` |
 
 **Group aliases:**

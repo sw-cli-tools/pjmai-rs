@@ -1,9 +1,9 @@
 use crate::error::{PjmError, Result};
 use crate::output::{
-    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, DetectedConfig,
-    DetectedFeature, EnvAutoDetectOutput, EnvModifyOutput, EnvShowOutput, ErrorOutput, KeyFile,
-    ListOutput, MetaOutput, NoteEntry, NotesOutput, ProjectOutput, PromptOutput, PushPopOutput,
-    SetupAction, SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
+    self, AliasOutput, AliasesOutput, ChangeOutput, ContextOutput, DetectedConfig, DetectedFeature,
+    EnvAutoDetectOutput, EnvModifyOutput, EnvShowOutput, ErrorOutput, KeyFile, ListOutput,
+    MetaOutput, NoteEntry, NotesOutput, ProjectOutput, PromptOutput, PushPopOutput, SetupAction,
+    SetupOutput, ShowOutput, SuccessOutput, TagsOutput,
 };
 // Note: Group output types (GroupListOutput, GroupShowOutput, etc.) accessed via output:: prefix
 use crate::projects;
@@ -17,17 +17,29 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+/// Parameters for the add command
+pub struct AddParams {
+    /// Project name
+    pub project_name: String,
+    /// File or directory path
+    pub file_name: String,
+    /// Description
+    pub description: Option<String>,
+    /// Tags
+    pub tags: Option<Vec<String>>,
+    /// Language
+    pub language: Option<String>,
+    /// Group
+    pub group: Option<String>,
+    /// Pin to survive scan --reset
+    pub pinned: bool,
+}
+
 /// Add a project
-pub fn add(
-    project_name: &str,
-    file_name: &str,
-    description: Option<String>,
-    tags: Option<Vec<String>>,
-    language: Option<String>,
-    group: Option<String>,
-    json: bool,
-) -> Result<()> {
-    info!("adding {} -f {}", &project_name, &file_name);
+pub fn add(params: &AddParams, json: bool) -> Result<()> {
+    let project_name = &params.project_name;
+    let file_name = &params.file_name;
+    info!("adding {} -f {}", project_name, file_name);
     let mut registry = util::projects()?;
 
     // Check for duplicate project name (using already loaded projects)
@@ -36,31 +48,39 @@ pub fn add(
         return Err(PjmError::DuplicateProject(project_name.to_string()));
     }
 
-    // Validate that the file or directory exists
+    // Resolve to absolute path (handles ~, ./, ../, and relative paths)
     let expanded_path = util::expand_file_path(file_name);
     if !util::is_file_found(&expanded_path) {
         return Err(PjmError::PathNotFound(expanded_path));
     }
+    let absolute_path = std::fs::canonicalize(&expanded_path)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or(expanded_path.clone());
 
     // Build metadata if any fields are provided
-    let metadata = if description.is_some() || tags.is_some() || language.is_some() || group.is_some() {
-        Some(projects::ProjectMetadata {
-            description,
-            tags: tags.unwrap_or_default(),
-            language,
-            group,
-            last_used: None,
-            notes: Vec::new(),
-            environment: None,
-        })
-    } else {
-        None
-    };
+    let description = params.description.clone();
+    let tags = params.tags.clone();
+    let language = params.language.clone();
+    let group = params.group.clone();
+    let metadata =
+        if description.is_some() || tags.is_some() || language.is_some() || group.is_some() {
+            Some(projects::ProjectMetadata {
+                description,
+                tags: tags.unwrap_or_default(),
+                language,
+                group,
+                last_used: None,
+                notes: Vec::new(),
+                environment: None,
+            })
+        } else {
+            None
+        };
 
     info!("push");
     registry.project.push(projects::ChangeToProject {
         action: projects::Action {
-            file_or_dir: file_name.to_string(),
+            file_or_dir: absolute_path.clone(),
         },
         name: project_name.to_string(),
         metadata,
@@ -71,6 +91,14 @@ pub fn add(
     }
     util::save_config_toml(&registry.ser()?)?;
 
+    // Append to pinned.sh if --pinned flag is set
+    if params.pinned {
+        append_to_pinned(project_name, &absolute_path)?;
+        if !json {
+            eprintln!("Pinned: added to ~/.pjmai/pinned.sh (survives scan --reset)");
+        }
+    }
+
     if json {
         output::print_json(&SuccessOutput {
             success: true,
@@ -80,6 +108,40 @@ pub fn add(
     }
 
     info!("add done");
+    Ok(())
+}
+
+/// Append a project to ~/.pjmai/pinned.sh
+fn append_to_pinned(project_name: &str, file_name: &str) -> Result<()> {
+    let config = crate::PjmConfig::new();
+    let pinned_path = PathBuf::from(&config.config_dir).join("pinned.sh");
+
+    // Check if this project is already in pinned.sh
+    if pinned_path.exists() {
+        let contents = fs::read_to_string(&pinned_path).map_err(PjmError::ConfigRead)?;
+        // Check if this project name is already referenced
+        if contents.contains(&format!("adpj {} ", project_name))
+            || contents.contains(&format!("adpj {} -f", project_name))
+        {
+            info!("project {} already in pinned.sh", project_name);
+            return Ok(());
+        }
+    }
+
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&pinned_path)
+        .map_err(PjmError::ConfigWrite)?;
+
+    // Write a conditional add line
+    writeln!(
+        file,
+        "qypj {} 2>/dev/null || adpj {} -f {}",
+        project_name, project_name, file_name
+    )
+    .map_err(PjmError::ConfigWrite)?;
+
     Ok(())
 }
 
@@ -103,6 +165,11 @@ pub fn aliases(json: bool) {
                 alias: "ctpj".to_string(),
                 command: "pjmai context".to_string(),
                 description: "Show project context for AI agents".to_string(),
+            },
+            AliasOutput {
+                alias: "edpj".to_string(),
+                command: "pjmai edit".to_string(),
+                description: "Edit project properties".to_string(),
             },
             AliasOutput {
                 alias: "evpj".to_string(),
@@ -184,12 +251,23 @@ pub fn aliases(json: bool) {
                 command: "pjmai group prompt".to_string(),
                 description: "Get current group name for prompt".to_string(),
             },
+            AliasOutput {
+                alias: "qypj".to_string(),
+                command: "pjmai query".to_string(),
+                description: "Check if a project nickname exists".to_string(),
+            },
+            AliasOutput {
+                alias: "xppj".to_string(),
+                command: "pjmai exports".to_string(),
+                description: "Export project paths as shell named directories".to_string(),
+            },
         ];
         output::print_json(&AliasesOutput { aliases });
     } else {
         println!("adpj <name> -f <dir|file> # alias for pjmai add");
         println!("chpj <name>               # alias for pjmai change");
         println!("ctpj [name]               # alias for pjmai context");
+        println!("edpj <name> [opts]        # alias for pjmai edit");
         println!("evpj <name> <cmd> [args]  # alias for pjmai env");
         println!("hlpj                      # alias for pjmai aliases");
         println!("hypj [N]                  # alias for pjmai history");
@@ -198,24 +276,36 @@ pub fn aliases(json: bool) {
         println!("popj                      # alias for pjmai pop");
         println!("prpj                      # alias for pjmai prompt");
         println!("pspj <name>               # alias for pjmai push");
+        println!("qypj <name>               # alias for pjmai query");
         println!("rmpj <name>               # alias for pjmai remove");
         println!("scpj [dir]                # alias for pjmai scan");
         println!("shpj                      # alias for pjmai show");
         println!("stpj show|clear           # alias for pjmai stack");
+        println!("xppj [--format FMT]       # alias for pjmai exports");
         println!("srcpj                     # source .pjmai.sh (opt-in env)");
         println!();
         println!("{}", "Group aliases:".bold());
         println!("lsgp                      # alias for pjmai group list");
         println!("shgp [name]               # alias for pjmai group show");
         println!("prgp                      # alias for pjmai group prompt");
+        println!();
+        println!("{}", "User-editable files:".bold());
+        println!("~/.pjmai/config.toml      # project registry (managed by commands)");
+        println!("~/.pjmai/pinned.sh        # custom projects re-added after scan --reset");
+        println!("~/.pjmai/approved-envs    # approved .pjmai.sh hashes");
+        println!(".pjmai.sh                 # per-project env (opt-in via srcpj)");
     }
 
     info!("aliases done");
 }
 
-/// Changes to the specified project, optionally into a subdirectory
-pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> {
-    info!("changing to project {} subdirs={:?}", &project_name, subdirs);
+/// Changes to the specified project, optionally into a subdirectory.
+/// When `push` is true, pushes the current project to the stack instead of clearing it.
+pub fn change(project_name: &str, subdirs: &[String], push: bool, json: bool) -> Result<()> {
+    info!(
+        "changing to project {} subdirs={:?}",
+        &project_name, subdirs
+    );
     let mut registry = util::projects()?;
 
     // Find matching project(s) using fuzzy matching
@@ -260,7 +350,9 @@ pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> 
                                 subdir_path, proj_name
                             ),
                             similar_projects: None,
-                            hint: Some("Use tab completion to see available subdirectories".to_string()),
+                            hint: Some(
+                                "Use tab completion to see available subdirectories".to_string(),
+                            ),
                         });
                     } else {
                         println!(
@@ -277,7 +369,9 @@ pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> 
                             code: "NOT_A_DIRECTORY".to_string(),
                             message: format!("'{}' is a file, not a directory", subdir_path),
                             similar_projects: None,
-                            hint: Some("Subdirectory navigation only works with directories".to_string()),
+                            hint: Some(
+                                "Subdirectory navigation only works with directories".to_string(),
+                            ),
                         });
                     } else {
                         println!("'{}' is a file, not a directory", subdir_path);
@@ -288,17 +382,25 @@ pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> 
                 (full_path, Some(subdir_path))
             };
 
-            // Clear stack - chpj is non-stack navigation, abandons push/pop workflow
-            if !registry.stack.is_empty() {
-                eprintln!(
-                    "{}: Clearing stack ({} entries) — use pspj/popj for stack navigation",
-                    "note".cyan().bold(),
-                    registry.stack.len()
-                );
-                registry.stack.clear();
+            if push {
+                // Push current project to stack (like pspj) before switching
+                if !registry.current_project.is_empty() {
+                    registry.stack.push(registry.current_project.clone());
+                }
+            } else {
+                // Clear stack - chpj is non-stack navigation, abandons push/pop workflow
+                if !registry.stack.is_empty() {
+                    eprintln!(
+                        "{}: Clearing stack ({} entries) — use pspj/popj or chpj --push for stack navigation",
+                        "note".cyan().bold(),
+                        registry.stack.len()
+                    );
+                    registry.stack.clear();
+                }
             }
 
             registry.current_project = proj_name.clone();
+            registry.touch_project(&proj_name);
             registry.record_history(&proj_name);
             util::save_config_toml(&registry.ser()?)?;
 
@@ -360,11 +462,7 @@ pub fn change(project_name: &str, subdirs: &[String], json: bool) -> Result<()> 
         }
         MatchResult::None => {
             // Collect similar project names for suggestions
-            let similar: Vec<String> = registry
-                .project
-                .iter()
-                .map(|p| p.name.clone())
-                .collect();
+            let similar: Vec<String> = registry.project.iter().map(|p| p.name.clone()).collect();
 
             if json {
                 output::print_json(&ErrorOutput {
@@ -397,10 +495,7 @@ fn normalize_subdirs(subdirs: &[String]) -> String {
     let joined = subdirs.join("/");
 
     // Split by "/" to normalize and filter empty parts, then rejoin
-    let parts: Vec<&str> = joined
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .collect();
+    let parts: Vec<&str> = joined.split('/').filter(|s| !s.is_empty()).collect();
 
     parts.join("/")
 }
@@ -474,6 +569,9 @@ fn find_matching_project<'a>(
 pub fn list(
     tag_filter: Option<String>,
     group_filter: Option<String>,
+    lang_filter: Option<String>,
+    long: bool,
+    sort_modified: bool,
     sort_recent: bool,
     json: bool,
 ) -> Result<()> {
@@ -481,11 +579,13 @@ pub fn list(
     let registry = util::projects()?;
 
     // Get filtered and sorted projects
-    let filtered_projects: Vec<&projects::ChangeToProject> = if let Some(ref tag) = tag_filter {
+    let mut filtered_projects: Vec<&projects::ChangeToProject> = if let Some(ref tag) = tag_filter {
         registry.projects_with_tag(tag)
     } else if let Some(ref group) = group_filter {
         // Support "." for current group, aliases, and group names
         registry.projects_in_inferred_group(group)
+    } else if let Some(ref lang) = lang_filter {
+        registry.projects_with_language(lang)
     } else if sort_recent {
         registry.projects_by_recency()
     } else {
@@ -493,6 +593,15 @@ pub fn list(
         sorted.sort_by(|a, b| a.name.cmp(&b.name));
         sorted
     };
+
+    // Sort by most recently modified files in project directory
+    if sort_modified {
+        filtered_projects.sort_by(|a, b| {
+            let a_time = newest_file_mtime(&util::expand_file_path(&a.action.file_or_dir));
+            let b_time = newest_file_mtime(&util::expand_file_path(&b.action.file_or_dir));
+            b_time.cmp(&a_time) // Most recently modified first
+        });
+    }
 
     if json {
         let projects: Vec<ProjectOutput> = filtered_projects
@@ -536,7 +645,14 @@ pub fn list(
                     .map(|g| g.name)
                     .unwrap_or_else(|| group.clone())
             };
-            println!("{}", format!("Projects in group '{}':", display_group).cyan());
+            println!(
+                "{}",
+                format!("Projects in group '{}':", display_group).cyan()
+            );
+        } else if let Some(ref lang) = lang_filter {
+            println!("{}", format!("Projects with language '{}':", lang).cyan());
+        } else if sort_modified {
+            println!("{}", "Projects by recently modified:".cyan());
         } else if sort_recent {
             println!("{}", "Projects by recently used:".cyan());
         }
@@ -559,27 +675,50 @@ pub fn list(
                 " ".to_string().normal()
             };
 
-            // Build tags/group suffix
+            // Build metadata suffix
             let meta = project.metadata.as_ref();
-            let tags_str = meta
-                .map(|m| {
+            let suffix = if long {
+                // Long mode: show language, description, tags
+                let mut parts = Vec::new();
+                if let Some(lang) = meta.and_then(|m| m.language.as_ref()) {
+                    parts.push(format!("({})", lang));
+                }
+                if let Some(desc) = meta.and_then(|m| m.description.as_ref()) {
+                    parts.push(format!("- {}", desc));
+                }
+                let tags = meta.map(|m| &m.tags).filter(|t| !t.is_empty());
+                if let Some(t) = tags {
+                    parts.push(format!("[{}]", t.join(", ")));
+                }
+                if parts.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {}", parts.join(" ")).dimmed().to_string()
+                }
+            } else {
+                // Short mode: only tags
+                meta.map(|m| {
                     if m.tags.is_empty() {
                         String::new()
                     } else {
                         format!(" [{}]", m.tags.join(", ")).dimmed().to_string()
                     }
                 })
-                .unwrap_or_default();
+                .unwrap_or_default()
+            };
 
             println!(
                 "{}{:8} {}{}",
-                current, colored_name, colored_short_path, tags_str
+                current, colored_name, colored_short_path, suffix
             );
         }
 
         // Only show "no matching" when a filter was applied
         if filtered_projects.is_empty()
-            && (tag_filter.is_some() || group_filter.is_some() || sort_recent)
+            && (tag_filter.is_some()
+                || group_filter.is_some()
+                || lang_filter.is_some()
+                || sort_recent)
         {
             println!("{}", "(no matching projects)".dimmed());
         }
@@ -632,6 +771,7 @@ pub fn push(project_name: &str, json: bool) -> Result<()> {
 
                 // Switch to new project
                 registry.current_project = proj_name.clone();
+                registry.touch_project(&proj_name);
                 registry.record_history(&proj_name);
                 util::save_config_toml(&registry.ser()?)?;
 
@@ -690,11 +830,7 @@ pub fn push(project_name: &str, json: bool) -> Result<()> {
             std::process::exit(4);
         }
         MatchResult::None => {
-            let similar: Vec<String> = registry
-                .project
-                .iter()
-                .map(|p| p.name.clone())
-                .collect();
+            let similar: Vec<String> = registry.project.iter().map(|p| p.name.clone()).collect();
 
             if json {
                 output::print_json(&ErrorOutput {
@@ -756,10 +892,7 @@ pub fn pop(json: bool) -> Result<()> {
     }
 
     // Find the popped project
-    let project = registry
-        .project
-        .iter()
-        .find(|p| p.name == popped_project);
+    let project = registry.project.iter().find(|p| p.name == popped_project);
 
     match project {
         Some(project) => {
@@ -768,6 +901,7 @@ pub fn pop(json: bool) -> Result<()> {
 
             if util::is_file_found(&file_path) {
                 registry.current_project = proj_name.clone();
+                registry.touch_project(&proj_name);
                 registry.record_history(&proj_name);
                 util::save_config_toml(&registry.ser()?)?;
 
@@ -803,7 +937,9 @@ pub fn pop(json: bool) -> Result<()> {
                         code: "TARGET_NOT_FOUND".to_string(),
                         message: format!("Project target '{}' not found", &file_path),
                         similar_projects: None,
-                        hint: Some("The project was popped but its target path is missing".to_string()),
+                        hint: Some(
+                            "The project was popped but its target path is missing".to_string(),
+                        ),
                     });
                 } else {
                     eprintln!(
@@ -854,10 +990,7 @@ pub fn stack_show(json: bool) -> Result<()> {
     } else if registry.stack.is_empty() {
         println!("Stack is empty");
     } else {
-        println!(
-            "Stack ({}):",
-            registry.stack.len()
-        );
+        println!("Stack ({}):", registry.stack.len());
         for (i, name) in registry.stack.iter().rev().enumerate() {
             let marker = if i == 0 { "top -> " } else { "       " };
             println!("  {}{}", marker, name);
@@ -979,7 +1112,7 @@ pub fn history(index: Option<&usize>, json: bool) -> Result<()> {
 
             let project_name = registry.history[*idx - 1].clone();
             // Delegate to change (which records history, clears stack, etc.)
-            change(&project_name, &[], json)
+            change(&project_name, &[], false, json)
         }
     }
 }
@@ -999,11 +1132,7 @@ pub fn rename(from: &str, to: &str, json: bool) -> Result<()> {
                 hint: Some("Choose a different name".to_string()),
             });
         } else {
-            eprintln!(
-                "{}: Project '{}' already exists",
-                "error".red().bold(),
-                to
-            );
+            eprintln!("{}: Project '{}' already exists", "error".red().bold(), to);
         }
         return Ok(());
     }
@@ -1049,11 +1178,7 @@ pub fn rename(from: &str, to: &str, json: bool) -> Result<()> {
             hint: Some("Use 'pjmai list' to see all projects".to_string()),
         });
     } else {
-        eprintln!(
-            "{}: Project '{}' not found",
-            "error".red().bold(),
-            from
-        );
+        eprintln!("{}: Project '{}' not found", "error".red().bold(), from);
     }
 
     info!("rename done");
@@ -1067,9 +1192,7 @@ pub fn remove(unwanted_project_name: &str, json: bool) -> Result<()> {
     let initial_len = registry.project.len();
 
     // Remove the project (preserves all fields including metadata for remaining projects)
-    registry
-        .project
-        .retain(|p| p.name != unwanted_project_name);
+    registry.project.retain(|p| p.name != unwanted_project_name);
 
     let found = registry.project.len() < initial_len;
 
@@ -1105,6 +1228,34 @@ pub fn remove(unwanted_project_name: &str, json: bool) -> Result<()> {
 }
 
 /// Remove all projects from the registry
+/// Create a timestamped backup of config.toml before destructive operations.
+/// Backups are stored in ~/.pjmai/backups/YYYYMMDD-HHMMSS/config.toml
+fn backup_config() -> Result<()> {
+    let config = crate::PjmConfig::new();
+    let config_file = PathBuf::from(&config.config_dir).join("config.toml");
+
+    if !config_file.exists() {
+        return Ok(());
+    }
+
+    let now = chrono::Local::now();
+    let backup_dir = PathBuf::from(&config.config_dir)
+        .join("backups")
+        .join(now.format("%Y%m%d-%H%M%S").to_string());
+
+    fs::create_dir_all(&backup_dir).map_err(PjmError::ConfigWrite)?;
+    fs::copy(&config_file, backup_dir.join("config.toml")).map_err(PjmError::ConfigRead)?;
+
+    eprintln!(
+        "{}: backed up to {}",
+        "backup".cyan().bold(),
+        util::shorten_path(&backup_dir.to_string_lossy())
+    );
+
+    Ok(())
+}
+
+/// Remove all projects
 pub fn remove_all(yes: bool, json: bool) -> Result<()> {
     info!("remove all");
     let mut registry = util::projects()?;
@@ -1126,7 +1277,11 @@ pub fn remove_all(yes: bool, json: bool) -> Result<()> {
     if !yes && !json {
         eprintln!("This will remove all {} project(s):", count);
         for p in &registry.project {
-            eprintln!("  {} ({})", p.name, util::shorten_path(&p.action.file_or_dir));
+            eprintln!(
+                "  {} ({})",
+                p.name,
+                util::shorten_path(&p.action.file_or_dir)
+            );
         }
         eprint!("Remove all? [y/N] ");
         use std::io::Write;
@@ -1140,6 +1295,9 @@ pub fn remove_all(yes: bool, json: bool) -> Result<()> {
             return Ok(());
         }
     }
+
+    // Backup before destructive operation
+    backup_config()?;
 
     registry.project.clear();
     registry.current_project = String::new();
@@ -1187,12 +1345,36 @@ pub fn show(json: bool) -> Result<()> {
                     .green()
                 );
 
+                // Display metadata if present
+                let meta = project.metadata.as_ref();
+                let mut meta_parts = Vec::new();
+                if let Some(lang) = meta.and_then(|m| m.language.as_ref()) {
+                    meta_parts.push(format!("Language: {}", lang));
+                }
+                if let Some(desc) = meta.and_then(|m| m.description.as_ref()) {
+                    meta_parts.push(format!("Description: {}", desc));
+                }
+                let tags = meta.map(|m| &m.tags).filter(|t| !t.is_empty());
+                if let Some(t) = tags {
+                    meta_parts.push(format!("Tags: {}", t.join(", ")));
+                }
+                if let Some(group) = meta.and_then(|m| m.group.as_ref()) {
+                    meta_parts.push(format!("Group: {}", group));
+                }
+                for part in &meta_parts {
+                    println!("{}", format!(" {}", part).dimmed());
+                }
+
                 // Display stack if non-empty
                 if !registry.stack.is_empty() {
                     println!(
                         "{}",
-                        format!(" Stack ({}): {}", registry.stack.len(), registry.stack.join(" <- "))
-                            .cyan()
+                        format!(
+                            " Stack ({}): {}",
+                            registry.stack.len(),
+                            registry.stack.join(" <- ")
+                        )
+                        .cyan()
                     );
                 }
             }
@@ -1300,7 +1482,9 @@ fn complete_projects(prefix: Option<&str>) {
         .filter(|p| {
             let name_lower = p.name.to_lowercase();
             !name_lower.starts_with(&query_lower)
-                && !name_lower.split('-').any(|seg| seg.starts_with(&query_lower))
+                && !name_lower
+                    .split('-')
+                    .any(|seg| seg.starts_with(&query_lower))
                 && name_lower.contains(&query_lower)
         })
         .collect();
@@ -1808,12 +1992,7 @@ fn install_completions(shell: Shell) -> std::result::Result<String, String> {
             format!("{}/.config/fish/completions", home),
             "pjmai.fish".to_string(),
         ),
-        _ => {
-            return Err(format!(
-                "Completions for {:?} not supported yet",
-                shell
-            ))
-        }
+        _ => return Err(format!("Completions for {:?} not supported yet", shell)),
     };
 
     // Create completions directory
@@ -2073,21 +2252,14 @@ fn detect_key_files(dir: &str) -> Vec<KeyFile> {
 // ============================================================
 
 /// Manage project notes
-pub fn note(
-    project_name: &str,
-    action: &crate::args::NoteAction,
-    json: bool,
-) -> Result<()> {
+pub fn note(project_name: &str, action: &crate::args::NoteAction, json: bool) -> Result<()> {
     use crate::args::NoteAction;
     info!("note for {} action={:?}", project_name, action);
 
     let mut registry = util::projects()?;
 
     // Find the project
-    let project_idx = registry
-        .project
-        .iter()
-        .position(|p| p.name == project_name);
+    let project_idx = registry.project.iter().position(|p| p.name == project_name);
 
     let Some(idx) = project_idx else {
         if json {
@@ -2173,7 +2345,10 @@ pub fn note(
                             code: "INVALID_INDEX".to_string(),
                             message: format!("Invalid note index: {}", index),
                             similar_projects: None,
-                            hint: Some("Use 'pjmai note -p <project> list' to see note indices".to_string()),
+                            hint: Some(
+                                "Use 'pjmai note -p <project> list' to see note indices"
+                                    .to_string(),
+                            ),
                         });
                     } else {
                         eprintln!("{}: Invalid note index {}", "error".red().bold(), index);
@@ -2190,7 +2365,12 @@ pub fn note(
                         project: project_name.to_string(),
                     });
                 } else {
-                    println!("{} Removed note {} from '{}'", "-".red(), index, project_name);
+                    println!(
+                        "{} Removed note {} from '{}'",
+                        "-".red(),
+                        index,
+                        project_name
+                    );
                 }
             }
         }
@@ -2220,21 +2400,14 @@ pub fn note(
 // ============================================================
 
 /// Manage project tags
-pub fn tag(
-    project_name: &str,
-    action: &crate::args::TagAction,
-    json: bool,
-) -> Result<()> {
+pub fn tag(project_name: &str, action: &crate::args::TagAction, json: bool) -> Result<()> {
     use crate::args::TagAction;
     info!("tag for {} action={:?}", project_name, action);
 
     let mut registry = util::projects()?;
 
     // Find the project
-    let project_idx = registry
-        .project
-        .iter()
-        .position(|p| p.name == project_name);
+    let project_idx = registry.project.iter().position(|p| p.name == project_name);
 
     let Some(idx) = project_idx else {
         if json {
@@ -2349,22 +2522,22 @@ pub fn tag(
 // ============================================================
 
 /// Update project metadata
-pub fn meta(
+/// Edit project properties (description, language, group, pinned state)
+pub fn edit(
     project_name: &str,
     description: Option<String>,
     language: Option<String>,
     group: Option<String>,
+    pin: bool,
+    unpin: bool,
     json: bool,
 ) -> Result<()> {
-    info!("meta for {}", project_name);
+    info!("edit for {}", project_name);
 
     let mut registry = util::projects()?;
 
     // Find the project
-    let project_idx = registry
-        .project
-        .iter()
-        .position(|p| p.name == project_name);
+    let project_idx = registry.project.iter().position(|p| p.name == project_name);
 
     let Some(idx) = project_idx else {
         if json {
@@ -2405,13 +2578,24 @@ pub fn meta(
         updated_fields.push("group".to_string());
     }
 
+    // Handle pin/unpin
+    if pin {
+        let file_path = registry.project[idx].action.file_or_dir.clone();
+        append_to_pinned(project_name, &file_path)?;
+        updated_fields.push("pinned".to_string());
+    }
+    if unpin {
+        remove_from_pinned(project_name)?;
+        updated_fields.push("unpinned".to_string());
+    }
+
     if updated_fields.is_empty() {
         if json {
             output::print_json(&ErrorOutput {
                 code: "NO_FIELDS".to_string(),
                 message: "No fields to update".to_string(),
                 similar_projects: None,
-                hint: Some("Specify --description, --language, or --group".to_string()),
+                hint: Some("Specify -D, -L, -g, --pin, or --unpin".to_string()),
             });
         } else {
             eprintln!("{}: No fields to update", "warning".yellow().bold());
@@ -2439,6 +2623,33 @@ pub fn meta(
     Ok(())
 }
 
+/// Remove a project from ~/.pjmai/pinned.sh
+fn remove_from_pinned(project_name: &str) -> Result<()> {
+    let config = crate::PjmConfig::new();
+    let pinned_path = PathBuf::from(&config.config_dir).join("pinned.sh");
+
+    if !pinned_path.exists() {
+        return Ok(());
+    }
+
+    let contents = fs::read_to_string(&pinned_path).map_err(PjmError::ConfigRead)?;
+    let filtered: Vec<&str> = contents
+        .lines()
+        .filter(|line| {
+            !line.contains(&format!("adpj {} ", project_name))
+                && !line.contains(&format!("adpj {} -f", project_name))
+        })
+        .collect();
+
+    fs::write(
+        &pinned_path,
+        filtered.join("\n") + if filtered.is_empty() { "" } else { "\n" },
+    )
+    .map_err(PjmError::ConfigWrite)?;
+
+    Ok(())
+}
+
 // ============================================================
 // Scan command implementation
 // ============================================================
@@ -2458,6 +2669,8 @@ struct DiscoveredRepo {
     repo_name: Option<String>,
     /// Host (e.g., "github.com")
     host: Option<String>,
+    /// Auto-detected primary language
+    language: Option<String>,
 }
 
 /// Scan directories for git repositories
@@ -2468,6 +2681,59 @@ pub fn scan(
     dry_run: bool,
     add_all: bool,
     json: bool,
+) -> Result<()> {
+    scan_with_prior(
+        start_dir,
+        max_depth,
+        ignore_dirs,
+        dry_run,
+        add_all,
+        json,
+        None,
+    )
+}
+
+/// Reset all projects then re-scan, preserving user metadata (description, tags, notes, etc.)
+pub fn scan_reset(
+    start_dir: &str,
+    max_depth: usize,
+    ignore_dirs: Option<Vec<String>>,
+    dry_run: bool,
+    add_all: bool,
+    yes: bool,
+    json: bool,
+) -> Result<()> {
+    // Snapshot metadata keyed by expanded path before wiping
+    let old_registry = util::projects().unwrap_or_else(|_| projects::ProjectsRegistry::new());
+    let mut prior_metadata: HashMap<String, projects::ProjectMetadata> = HashMap::new();
+    for project in &old_registry.project {
+        if let Some(ref meta) = project.metadata {
+            let expanded = util::expand_file_path(&project.action.file_or_dir);
+            prior_metadata.insert(expanded, meta.clone());
+        }
+    }
+
+    remove_all(yes, json)?;
+    scan_with_prior(
+        start_dir,
+        max_depth,
+        ignore_dirs,
+        dry_run,
+        add_all,
+        json,
+        Some(prior_metadata),
+    )
+}
+
+/// Scan with optional prior metadata to restore (used by --reset flow)
+fn scan_with_prior(
+    start_dir: &str,
+    max_depth: usize,
+    ignore_dirs: Option<Vec<String>>,
+    dry_run: bool,
+    add_all: bool,
+    json: bool,
+    prior_metadata: Option<HashMap<String, projects::ProjectMetadata>>,
 ) -> Result<()> {
     info!("scanning {} with depth {}", start_dir, max_depth);
 
@@ -2489,7 +2755,17 @@ pub fn scan(
     // Build ignore set
     let mut ignore_set: HashSet<String> = HashSet::new();
     // Default ignores
-    for dir in &["node_modules", "target", "vendor", ".git", "dist", "build", "__pycache__", ".venv", "venv"] {
+    for dir in &[
+        "node_modules",
+        "target",
+        "vendor",
+        ".git",
+        "dist",
+        "build",
+        "__pycache__",
+        ".venv",
+        "venv",
+    ] {
         ignore_set.insert(dir.to_string());
     }
     // User-specified ignores
@@ -2527,7 +2803,7 @@ pub fn scan(
     };
 
     if should_add {
-        add_discovered_repos(&repos_with_nicknames, json)?;
+        add_discovered_repos(&repos_with_nicknames, json, &prior_metadata)?;
         eprintln!(
             "\n{}",
             format!("Added {} project(s).", repos_with_nicknames.len())
@@ -2687,6 +2963,9 @@ fn parse_git_repo(dir: &Path) -> Option<DiscoveredRepo> {
     // Suggested name: prefer repo name from remote, fall back to dir name
     let suggested_name = repo_name.clone().unwrap_or_else(|| dir_name.clone());
 
+    // Auto-detect primary language from project files
+    let language = detect_language(dir);
+
     Some(DiscoveredRepo {
         path,
         suggested_name,
@@ -2694,7 +2973,93 @@ fn parse_git_repo(dir: &Path) -> Option<DiscoveredRepo> {
         owner,
         repo_name: repo_name.or(Some(dir_name)),
         host,
+        language,
     })
+}
+
+/// Get the most recent modification time of files in a directory (non-recursive for performance).
+/// Returns `SystemTime::UNIX_EPOCH` if the directory can't be read or has no files.
+fn newest_file_mtime(dir_path: &str) -> std::time::SystemTime {
+    use std::time::SystemTime;
+    let Ok(entries) = std::fs::read_dir(dir_path) else {
+        return SystemTime::UNIX_EPOCH;
+    };
+    entries
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.metadata().ok())
+        .filter_map(|m| m.modified().ok())
+        .max()
+        .unwrap_or(SystemTime::UNIX_EPOCH)
+}
+
+/// Detect programming languages present in a project directory.
+/// Returns a combined string like "rust", "rust+python", or "rust+javascript".
+/// The first language listed is the primary one (based on indicator priority).
+fn detect_language(dir: &Path) -> Option<String> {
+    // Order defines priority: first match for a language wins its position.
+    // Multiple indicators for the same language are grouped together.
+    let indicators: &[(&str, &str)] = &[
+        ("Cargo.toml", "rust"),
+        ("go.mod", "go"),
+        ("pom.xml", "java"),
+        ("build.gradle", "java"),
+        ("build.gradle.kts", "kotlin"),
+        ("Package.swift", "swift"),
+        ("*.cabal", "haskell"),
+        ("stack.yaml", "haskell"),
+        ("mix.exs", "elixir"),
+        ("Gemfile", "ruby"),
+        ("composer.json", "php"),
+        ("pubspec.yaml", "dart"),
+        ("CMakeLists.txt", "c/c++"),
+        ("Makefile.PL", "perl"),
+        ("cpanfile", "perl"),
+        // JavaScript/TypeScript: tsconfig takes priority
+        ("tsconfig.json", "typescript"),
+        ("package.json", "javascript"),
+        // Python indicators
+        ("pyproject.toml", "python"),
+        ("setup.py", "python"),
+        ("setup.cfg", "python"),
+        ("requirements.txt", "python"),
+        ("Pipfile", "python"),
+        // .NET
+        ("*.csproj", "c#"),
+        ("*.fsproj", "f#"),
+    ];
+
+    let mut detected: Vec<String> = Vec::new();
+
+    for (file, lang) in indicators {
+        // Skip if we already detected this language
+        if detected.iter().any(|l| l == lang) {
+            continue;
+        }
+
+        let found = if let Some(ext) = file.strip_prefix('*') {
+            // Glob pattern: check if any file matches the extension
+            fs::read_dir(dir)
+                .ok()
+                .map(|entries| {
+                    entries
+                        .flatten()
+                        .any(|e| e.file_name().to_string_lossy().ends_with(ext))
+                })
+                .unwrap_or(false)
+        } else {
+            dir.join(file).exists()
+        };
+
+        if found {
+            detected.push(lang.to_string());
+        }
+    }
+
+    if detected.is_empty() {
+        None
+    } else {
+        Some(detected.join("+"))
+    }
 }
 
 /// Parse git config file to extract origin URL
@@ -2828,7 +3193,9 @@ fn generate_unique_nicknames(
     for mut repo in repos {
         let base_name = repo.suggested_name.clone();
 
-        if !used_names.contains(&base_name) && name_counts.get(&base_name).copied().unwrap_or(0) <= 1 {
+        if !used_names.contains(&base_name)
+            && name_counts.get(&base_name).copied().unwrap_or(0) <= 1
+        {
             // No collision — use as-is
             used_names.insert(base_name);
             result.push(repo);
@@ -2922,7 +3289,7 @@ fn display_discovered_repos(repos: &[DiscoveredRepo]) {
 
 /// Prompt user to add all discovered repos
 fn prompt_add_all(count: usize) -> bool {
-    use std::io::{stderr, stdin, Write};
+    use std::io::{Write, stderr, stdin};
 
     eprint!("\nAdd all {} project(s)? [Y/n] ", count);
     stderr().flush().expect("flush stderr");
@@ -2933,24 +3300,60 @@ fn prompt_add_all(count: usize) -> bool {
 }
 
 /// Add discovered repos to the project registry
-fn add_discovered_repos(repos: &[DiscoveredRepo], json: bool) -> Result<()> {
+fn add_discovered_repos(
+    repos: &[DiscoveredRepo],
+    json: bool,
+    prior_metadata: &Option<HashMap<String, projects::ProjectMetadata>>,
+) -> Result<()> {
     let mut registry = util::projects()?;
 
     for repo in repos {
         let path_str = repo.path.to_string_lossy().to_string();
+        // Restore prior metadata if available (preserves description, tags, last_used, notes, env)
+        let metadata = if let Some(prior) = prior_metadata {
+            if let Some(old_meta) = prior.get(&path_str) {
+                let mut restored = old_meta.clone();
+                // Update language from fresh detection (may have changed)
+                if let Some(ref lang) = repo.language {
+                    restored.language = Some(lang.clone());
+                }
+                Some(restored)
+            } else {
+                repo.language
+                    .as_ref()
+                    .map(|lang| projects::ProjectMetadata {
+                        language: Some(lang.clone()),
+                        ..Default::default()
+                    })
+            }
+        } else {
+            repo.language
+                .as_ref()
+                .map(|lang| projects::ProjectMetadata {
+                    language: Some(lang.clone()),
+                    ..Default::default()
+                })
+        };
+
         registry.project.push(projects::ChangeToProject {
             action: projects::Action {
                 file_or_dir: path_str.clone(),
             },
             name: repo.suggested_name.clone(),
-            metadata: None, // Metadata can be added later with `pjmai meta`
+            metadata,
         });
 
         if !json {
+            let lang_suffix = repo
+                .language
+                .as_ref()
+                .map(|l| format!(" ({})", l).dimmed().to_string())
+                .unwrap_or_default();
             eprintln!(
-                "  {} {} -> {}",
+                "  {} {}{} -> {}",
                 "+".green(),
                 repo.suggested_name.green(),
+                lang_suffix,
                 util::shorten_path(&path_str)
             );
         }
@@ -3023,7 +3426,10 @@ pub fn config_export(format: &str, json: bool) -> Result<()> {
 
 /// Import configuration from a file
 pub fn config_import(file: &str, merge: bool, dry_run: bool, json: bool) -> Result<()> {
-    info!("config import file={} merge={} dry_run={}", file, merge, dry_run);
+    info!(
+        "config import file={} merge={} dry_run={}",
+        file, merge, dry_run
+    );
 
     // Read and parse the import file
     let expanded_path = util::expand_file_path(file);
@@ -3160,7 +3566,10 @@ pub fn env_set(project_name: &str, key: &str, value: &str, json: bool) -> Result
         env.vars = Some(HashMap::new());
     }
 
-    env.vars.as_mut().unwrap().insert(key.to_string(), value.to_string());
+    env.vars
+        .as_mut()
+        .unwrap()
+        .insert(key.to_string(), value.to_string());
 
     util::save_config_toml(&registry.ser()?)?;
 
@@ -3368,7 +3777,10 @@ pub fn env_path_remove(project_name: &str, path: &str, json: bool) -> Result<()>
             project: project_name.to_string(),
         });
     } else {
-        println!("Removed path_prepend '{}' for project {}", path, project_name);
+        println!(
+            "Removed path_prepend '{}' for project {}",
+            path, project_name
+        );
     }
 
     Ok(())
@@ -3603,7 +4015,10 @@ pub fn env_auto_detect(project_name: &str, dry_run: bool, json: bool) -> Result<
                 detected: vec![],
             });
         } else {
-            println!("No environment features detected for project {}", project_name);
+            println!(
+                "No environment features detected for project {}",
+                project_name
+            );
         }
         return Ok(());
     }
@@ -3672,12 +4087,19 @@ pub fn env_auto_detect(project_name: &str, dry_run: bool, json: bool) -> Result<
     } else {
         println!(
             "{}",
-            format!("Detected environment features for project {}:", project_name).cyan()
+            format!(
+                "Detected environment features for project {}:",
+                project_name
+            )
+            .cyan()
         );
         for feature in &detected {
             println!("  {} (from {})", feature.feature.green(), feature.source);
             if !feature.config.path_prepend.is_empty() {
-                println!("    Path prepend: {}", feature.config.path_prepend.join(", "));
+                println!(
+                    "    Path prepend: {}",
+                    feature.config.path_prepend.join(", ")
+                );
             }
             if !feature.config.on_enter.is_empty() {
                 println!("    On enter: {}", feature.config.on_enter.join("; "));
@@ -3702,9 +4124,17 @@ fn generate_env_setup(project: &projects::ChangeToProject, file_path: &str) -> O
 
     // Check if there's anything to set up
     let has_vars = env.vars.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
-    let has_on_enter = env.on_enter.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    let has_on_enter = env
+        .on_enter
+        .as_ref()
+        .map(|v| !v.is_empty())
+        .unwrap_or(false);
     let has_on_exit = env.on_exit.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
-    let has_path_prepend = env.path_prepend.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    let has_path_prepend = env
+        .path_prepend
+        .as_ref()
+        .map(|v| !v.is_empty())
+        .unwrap_or(false);
 
     if !has_vars && !has_on_enter && !has_on_exit && !has_path_prepend {
         return None;
@@ -3881,7 +4311,11 @@ pub fn group_show(name: Option<String>, all: bool, json: bool) -> Result<()> {
             alias: group.alias.clone(),
             path: group.path.clone(),
             project_count: group.projects.len(),
-            projects: if all { group.projects.clone() } else { Vec::new() },
+            projects: if all {
+                group.projects.clone()
+            } else {
+                Vec::new()
+            },
         });
     } else {
         println!("{}: {}", "Group".bold(), group.name);
@@ -3998,9 +4432,8 @@ pub fn group_alias(
             } else {
                 // Verify the group exists
                 let resolved = registry.resolve_group_name(&g);
-                resolved.ok_or_else(|| {
-                    PjmError::InvalidFormat(format!("Group '{}' not found", g))
-                })?
+                resolved
+                    .ok_or_else(|| PjmError::InvalidFormat(format!("Group '{}' not found", g)))?
             }
         }
         None => {
@@ -4058,6 +4491,81 @@ pub fn group_alias(
             alias_name.green(),
             group_name
         );
+    }
+
+    Ok(())
+}
+
+/// Query whether a project nickname exists in the registry
+pub fn query(project_name: &str, json: bool) -> Result<()> {
+    info!("query {}", project_name);
+    let registry = util::projects()?;
+
+    let found = registry.project.iter().any(|p| p.name == project_name);
+    let path = if found {
+        registry
+            .project
+            .iter()
+            .find(|p| p.name == project_name)
+            .map(|p| util::expand_file_path(&p.action.file_or_dir))
+    } else {
+        None
+    };
+
+    if json {
+        output::print_json(&output::QueryOutput {
+            found,
+            project: project_name.to_string(),
+            path,
+        });
+    }
+
+    if !found {
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+/// Export project paths as shell named directories
+pub fn exports(format: &str, json: bool) -> Result<()> {
+    info!("exports format={}", format);
+    let registry = util::projects()?;
+
+    if json {
+        let entries: Vec<output::ExportEntry> = registry
+            .project
+            .iter()
+            .map(|p| output::ExportEntry {
+                name: p.name.clone(),
+                path: util::expand_file_path(&p.action.file_or_dir),
+            })
+            .collect();
+        output::print_json(&output::ExportsOutput {
+            format: format.to_string(),
+            exports: entries,
+        });
+        return Ok(());
+    }
+
+    for project in &registry.project {
+        let expanded = util::expand_file_path(&project.action.file_or_dir);
+        match format {
+            "zsh" => println!("hash -d {}={}", project.name, expanded),
+            "bash" => {
+                // Bash doesn't have named directories; export env vars with sanitized names
+                let var_name = project.name.replace('-', "_").to_uppercase();
+                println!("export PJMAI_{}=\"{}\"", var_name, expanded);
+            }
+            "fish" => {
+                let var_name = project.name.replace('-', "_").to_uppercase();
+                println!("set -gx PJMAI_{} \"{}\"", var_name, expanded);
+            }
+            _ => {
+                eprintln!("Unknown format '{}'. Use: zsh, bash, or fish", format);
+                std::process::exit(1);
+            }
+        }
     }
 
     Ok(())

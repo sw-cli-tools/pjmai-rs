@@ -149,7 +149,7 @@ prpj
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `pjmai add -p <name> -f <path>` | `adpj` | Add a new project |
-| `pjmai change -p <name> [subdir...]` | `chpj` | Switch to a project (clears stack) |
+| `pjmai change -p <name> [subdir...]` | `chpj` | Switch to a project (clears stack; `--push` to push instead) |
 | `pjmai history [N]` | `hypj` | Show or jump to navigation history |
 | `pjmai list` | `lspj` | List all projects |
 | `pjmai push -p <name>` | `pspj` | Push current to stack, switch to project |
@@ -164,9 +164,12 @@ prpj
 | `pjmai complete subdirs <project> [path...]` | - | Fast subdirectory completion for shells |
 | `pjmai complete commands [prefix]` | - | Fast command name completion for shells |
 | `pjmai completions <shell>` | - | Generate shell completions |
+| `pjmai edit -p <name> [options]` | `edpj` | Edit project properties (description, language, pin) |
 | `pjmai scan [dir]` | `scpj` | Scan for git repos (`--reset` for fresh scan) |
 | `pjmai context [-p project]` | `ctpj` | Show project context for AI agents |
 | `pjmai env -p <name> <action>` | `evpj` | Manage project environment config |
+| `pjmai query -p <name>` | `qypj` | Check if a project exists (exits 0/1) |
+| `pjmai exports [--format FMT]` | `xppj` | Export paths as shell named directories |
 | `pjmai config export` | - | Export configuration to stdout |
 | `pjmai config import <file>` | - | Import configuration from a file |
 | `pjmai setup [shell]` | - | Auto-configure shell integration |
@@ -202,6 +205,14 @@ scpj ~/code --ignore vendor,dist,tmp
 scpj ~/projects --add-all
 ```
 
+```bash
+# Fresh re-scan (preserves metadata: descriptions, tags, notes, env config)
+scpj --reset -y ~/github
+
+# Non-interactive scan
+scpj ~/code -y
+```
+
 The scan command:
 - Finds directories containing `.git`
 - Parses git remote origin to extract owner/organization
@@ -209,6 +220,9 @@ The scan command:
 - Suggests nicknames based on repo name (handles collisions)
 - Honors `.gitignore` patterns when recursing
 - Skips already-registered projects (by path)
+- Auto-detects programming languages (e.g., `rust`, `python`, `rust+python` for polyglot projects)
+- `--reset` preserves user metadata (descriptions, tags, notes, last_used, env config)
+- Creates timestamped backups before destructive operations
 
 ## JSON Output Mode
 
@@ -349,6 +363,8 @@ Use push/pop for temporary project switches when you need to return:
 ```bash
 # Working in webapp, need to check something in api
 pspj api           # Push webapp to stack, switch to api
+# — or equivalently —
+chpj --push api    # Same thing: push + switch (with chpj features like subdirs)
 
 # Need to check config too
 pspj config        # Push api to stack, switch to config
@@ -536,6 +552,53 @@ Detected environment features for project webapp:
 Configuration applied.
 ```
 
+### Cross-Project File Operations (Named Directories)
+
+Export project paths so you can reference them in `cp`, `mv`, `ls`, and other commands:
+
+```bash
+# Zsh: enable ~nickname/path syntax (add to .zshrc)
+eval "$(xppj)"
+
+# Now use ~nickname/path with tab completion at every level:
+ls ~webapp/src/
+cp ~webapp/README.md ~backend/
+vim ~mylib/src/main.rs
+
+# Bash/Fish alternatives (use $PJMAI_* env vars):
+eval "$(xppj --format bash)"    # export PJMAI_WEBAPP="/home/user/code/webapp"
+eval "$(xppj --format fish)"    # set -gx PJMAI_WEBAPP "/home/user/code/webapp"
+```
+
+### Pinned Projects (Survive `scan --reset`)
+
+Pin custom projects (e.g., Dropbox directories) so they're re-added after `scpj --reset`:
+
+```bash
+# Add with --pinned flag (auto-appends to ~/.pjmai/pinned.sh)
+adpj shared-images -f ~/Dropbox/shared/images --pinned
+adpj shared-docs -f ~/Dropbox/shared/docs --pinned
+
+# Or manually create ~/.pjmai/pinned.sh:
+qypj shared-images 2>/dev/null || adpj shared-images -f ~/Dropbox/shared/images
+qypj shared-docs   2>/dev/null || adpj shared-docs   -f ~/Dropbox/shared/docs
+
+# After scan --reset, pinned.sh is auto-sourced
+scpj --reset ~/github    # Clears all, re-scans, then re-adds pinned projects
+```
+
+### Querying Projects
+
+Check if a project exists (useful in scripts):
+
+```bash
+# Exit code 0 if found, 1 if not
+qypj webapp && echo "exists"
+
+# Conditional add
+qypj shared-images 2>/dev/null || adpj shared-images -f ~/Dropbox/shared/images
+```
+
 ### Managing Your Project List
 
 ```bash
@@ -547,8 +610,38 @@ lspj
 #  backend  ~/code/backend-api
 #  devenv   ~/envs/dev-environment.sh
 
+# Extended info (language, description, tags)
+lspj --long
+
+# Filter by language
+lspj --lang rust
+
+# Sort by recently used (tracks chpj/pspj/popj)
+lspj --recent
+
+# Sort by filesystem modification time
+lspj --modified
+
 # Remove a project you no longer need
 rmpj -p oldproject
+```
+
+### Editing Project Properties (edpj)
+
+Update metadata for an existing project:
+
+```bash
+# Set description and language
+edpj webapp -D "Customer portal" -L typescript
+
+# Set group
+edpj webapp -g work
+
+# Pin a project (survives scan --reset)
+edpj webapp --pin
+
+# Unpin a project
+edpj webapp --unpin
 ```
 
 ## Configuration

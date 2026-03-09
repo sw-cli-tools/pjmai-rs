@@ -452,6 +452,36 @@ pub struct GroupAliasListOutput {
     pub aliases: HashMap<String, String>,
 }
 
+/// JSON output for query command
+#[derive(Debug, Serialize)]
+pub struct QueryOutput {
+    /// Whether the project was found
+    pub found: bool,
+    /// Project name queried
+    pub project: String,
+    /// Project path (if found)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+}
+
+/// JSON output for exports command
+#[derive(Debug, Serialize)]
+pub struct ExportsOutput {
+    /// Shell format used
+    pub format: String,
+    /// Export lines generated
+    pub exports: Vec<ExportEntry>,
+}
+
+/// A single export entry
+#[derive(Debug, Serialize)]
+pub struct ExportEntry {
+    /// Project nickname
+    pub name: String,
+    /// Project path
+    pub path: String,
+}
+
 /// Determine if a path points to a directory or file
 pub fn path_type(path: &str) -> String {
     let expanded = util::expand_file_path(path);
@@ -468,5 +498,8 @@ pub fn path_type(path: &str) -> String {
 
 /// Print JSON to stdout
 pub fn print_json<T: Serialize>(value: &T) {
-    println!("{}", serde_json::to_string_pretty(value).expect("JSON serialization failed"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).expect("JSON serialization failed")
+    );
 }

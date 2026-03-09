@@ -104,13 +104,13 @@ chpj web
 # ambiguous project name 'web', matches: webapp, webapi, website
 ```
 
-**Important:** `chpj` clears the push/pop stack. If you had stacked projects via `pspj`, switching with `chpj` abandons that stack. You'll see a note:
+**Important:** By default, `chpj` clears the push/pop stack. If you had stacked projects via `pspj`, switching with `chpj` abandons that stack. You'll see a note:
 
 ```
-note: Clearing stack (2 entries) — use pspj/popj for stack navigation
+note: Clearing stack (2 entries) — use pspj/popj or chpj --push for stack navigation
 ```
 
-This is intentional — `chpj` means "I'm moving on," not "I'll be right back."
+This is intentional — `chpj` means "I'm moving on," not "I'll be right back." Use `chpj --push` if you want stack behavior with chpj features (like subdirectory navigation).
 
 ### Subdirectory Navigation
 
@@ -154,11 +154,19 @@ chpj myproject README.md
 ```bash
 # You're in webapp
 pspj api-server     # saves webapp on the stack, switches to api-server
+# — or equivalently —
+chpj --push api-server  # same thing, with chpj features (subdirs, env setup)
 
 # Check what you need...
 
 popj                # returns to webapp
 # Output (stderr): Returning to 'webapp' (stack now empty)
+```
+
+The `--push` flag on `chpj` gives you the best of both worlds — stack-based navigation with subdirectory support:
+
+```bash
+chpj --push api-server src/routes   # push current project, switch to api-server/src/routes
 ```
 
 The stack supports multiple levels:
@@ -176,7 +184,7 @@ popj                # no-op
 ```
 
 **When does the stack get cleared?**
-- Using `chpj` (direct navigation abandons the stack)
+- Using `chpj` without `--push` (direct navigation abandons the stack)
 - Using `stpj clear` (explicit clear)
 - Running `source update.sh` (development reinstall)
 
@@ -289,8 +297,17 @@ lspj --tag rust
 # Filter by group
 lspj --group work
 
-# Sort by recently used
+# Filter by language
+lspj --lang rust
+
+# Extended info (language, description, tags)
+lspj --long
+
+# Sort by recently used (tracks chpj/pspj/popj navigation)
 lspj --recent
+
+# Sort by filesystem modification time
+lspj --modified
 ```
 
 ### Showing Current Project (shpj)
@@ -353,18 +370,20 @@ scpj ~/code --depth 5 --ignore node_modules,vendor
 scpj ~/code --add-all
 ```
 
-**Fresh re-scan:** When you've reorganized repos (forks, org changes), clear everything and start over:
+**Fresh re-scan:** When you've reorganized repos (forks, org changes), clear everything and start over. User metadata (descriptions, tags, notes, last_used, env config) is preserved across reset:
 
 ```bash
 # Clear all projects and re-scan in one step
 scpj ~/github --reset
 
+# Non-interactive fresh re-scan
+scpj --reset -y ~/github
+
 # Preview the fresh scan first
 scpj ~/github --reset --dry-run
-
-# Non-interactive fresh re-scan
-pjmai -y scan ~/github --reset --add-all
 ```
+
+**Auto language detection:** Scan detects programming languages from project files (e.g., `Cargo.toml` → rust, `package.json` → javascript). Polyglot projects show combined languages like `rust+python`.
 
 **Smart naming for collisions:** When the same repo name exists in multiple orgs, the scanner uses owner-prefixed names instead of numeric suffixes:
 
@@ -378,6 +397,24 @@ github.com/sw-music-tools
 ```
 
 After scanning, use `mvpj` to rename any names you want to customize further.
+
+### Editing Project Properties (edpj)
+
+**Scenario:** You want to add a description, change the language, or pin a project after scanning.
+
+```bash
+# Set description and language
+edpj webapp -D "Customer-facing portal" -L typescript
+
+# Set group
+edpj webapp -g work
+
+# Pin a project (survives scan --reset)
+edpj webapp --pin
+
+# Unpin
+edpj webapp --unpin
+```
 
 ---
 
@@ -582,7 +619,7 @@ pjmai setup --prompt     # add prompt integration
 
 ### Shell Completions
 
-Tab completion is built in for `chpj`, `rmpj`, and `pspj`. It uses the fast native `pjmai complete` command under the hood.
+Tab completion is built in for `chpj`, `rmpj`, and `pspj`. It uses the fast native `pjmai complete` command under the hood. Tab completion also works with `chpj --push` — the `--push` flag is transparent to completion, so `chpj --push r<TAB>` completes project names just like `pspj r<TAB>`.
 
 For other tools, generate standard completions:
 
@@ -663,8 +700,9 @@ pjmai config import backup.toml --dry-run   # preview only
 | Alias | Command | Description |
 |-------|---------|-------------|
 | `adpj` | `pjmai add` | Add a new project |
-| `chpj` | `pjmai change` | Switch to project (clears stack) |
+| `chpj` | `pjmai change` | Switch to project (clears stack; `--push` to push instead) |
 | `ctpj` | `pjmai context` | Show project context for AI |
+| `edpj` | `pjmai edit` | Edit project properties (description, language, pin) |
 | `evpj` | `pjmai env` | Manage environment config |
 | `hlpj` | `pjmai aliases` | Show all aliases |
 | `hypj` | `pjmai history` | Show or jump to navigation history |
@@ -673,10 +711,12 @@ pjmai config import backup.toml --dry-run   # preview only
 | `popj` | `pjmai pop` | Pop from stack, return to previous |
 | `prpj` | `pjmai prompt` | Current project name for prompt |
 | `pspj` | `pjmai push` | Push current, switch to project |
+| `qypj` | `pjmai query` | Check if project exists (exit 0/1) |
 | `rmpj` | `pjmai remove` | Remove a project |
 | `scpj` | `pjmai scan` | Scan for git repositories |
 | `shpj` | `pjmai show` | Show current project and stack |
 | `stpj` | `pjmai stack` | Show or clear the project stack |
+| `xppj` | `pjmai exports` | Export paths as named directories |
 | `srcpj` | *(shell fn)* | Source and approve `.pjmai.sh` |
 | `lsgp` | `pjmai group list` | List all groups |
 | `shgp` | `pjmai group show` | Show group details |

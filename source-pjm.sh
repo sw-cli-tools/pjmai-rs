@@ -137,8 +137,18 @@ _pjm_wants_help() {
 # Command functions (work in both interactive and non-interactive shells)
 # Functions that inject flags (e.g. -p) check for -h/--help first to avoid clap errors
 adpj() { if _pjm_wants_help "$@"; then pjm_fn add --help; else pjm_fn add -p "$@"; fi; }
-chpj() { if _pjm_wants_help "$@"; then pjm_fn change --help; else pjm_fn change -p "$@"; fi; }
+chpj() {
+    if _pjm_wants_help "$@"; then pjm_fn change --help; return; fi
+    # Extract --push flag before injecting -p (so -p gets the project name, not "--push")
+    local _pjm_push="" _pjm_args=()
+    for _pjm_arg in "$@"; do
+        if [ "$_pjm_arg" = "--push" ]; then _pjm_push="--push"
+        else _pjm_args+=("$_pjm_arg"); fi
+    done
+    pjm_fn change $_pjm_push -p "${_pjm_args[@]}"
+}
 ctpj() { pjm_fn context "$@"; }
+edpj() { if _pjm_wants_help "$@"; then pjm_fn edit --help; else pjm_fn edit -p "$@"; fi; }
 evpj() { if _pjm_wants_help "$@"; then pjm_fn env --help; else pjm_fn env -p "$@"; fi; }
 hlpj() { pjm_fn aliases "$@"; }
 hypj() { pjm_fn history "$@"; }
@@ -148,9 +158,19 @@ popj() { pjm_fn pop "$@"; }
 prpj() { pjm_fn prompt "$@"; }
 pspj() { if _pjm_wants_help "$@"; then pjm_fn push --help; else pjm_fn push -p "$@"; fi; }
 rmpj() { if _pjm_wants_help "$@"; then pjm_fn remove --help; else pjm_fn remove --project "$@"; fi; }
-scpj() { pjm_fn scan "$@"; }
+qypj() { if _pjm_wants_help "$@"; then pjm_fn query --help; else pjm_fn query -p "$@"; fi; }
+scpj() {
+    pjm_fn scan "$@"
+    # Auto-source pinned projects after scan (especially useful with --reset)
+    local _pjm_pinned="${PJMAI_CONFIG_DIR:-$HOME/.pjmai}/pinned.sh"
+    if [[ -f "$_pjm_pinned" ]]; then
+        echo "Sourcing pinned projects from $_pjm_pinned..."
+        source "$_pjm_pinned"
+    fi
+}
 shpj() { pjm_fn show "$@"; }
 stpj() { pjm_fn stack "$@"; }
+xppj() { pjm_fn exports "$@"; }
 
 # Group command functions
 lsgp() { pjm_fn group list "$@"; }
@@ -173,16 +193,26 @@ if [ -n "$ZSH_VERSION" ]; then
 
     # Zsh completion for chpj with subdirectory support
     _pjm_chpj_complete() {
-        if [[ ${CURRENT} -eq 2 ]]; then
-            # First argument - complete project names (all names, zsh matcher filters)
+        # Build effective words/position by stripping --push flag
+        local -a ewords=("${words[1]}")
+        local epos=1
+        local i
+        for (( i=2; i<=${#words}; i++ )); do
+            if [[ "${words[$i]}" != "--push" ]]; then
+                ewords+=("${words[$i]}")
+                if (( i <= CURRENT )); then (( epos++ )); fi
+            fi
+        done
+        if [[ ${epos} -eq 2 ]]; then
+            # First effective argument - complete project names (all names, zsh matcher filters)
             local -a projects
             projects=(${(f)"$(pjmai-rs complete projects 2>/dev/null)"})
             compadd -V pjm_projects -M "$_pjm_matcher" -- "${projects[@]}"
         else
             # Subsequent arguments - complete subdirs within project
-            local project="${words[2]}"
+            local project="${ewords[2]}"
             local -a subdirs
-            subdirs=(${(f)"$(pjmai-rs complete subdirs "$project" "${words[@]:2}" 2>/dev/null)"})
+            subdirs=(${(f)"$(pjmai-rs complete subdirs "$project" "${ewords[@]:2}" 2>/dev/null)"})
             compadd -V pjm_subdirs -- "${subdirs[@]}"
         fi
     }
@@ -200,13 +230,23 @@ elif [ -n "$BASH_VERSION" ]; then
     # Bash completion for chpj with subdirectory support
     _pjm_chpj_complete() {
         local cur="${COMP_WORDS[COMP_CWORD]}"
-        if [[ ${COMP_CWORD} -eq 1 ]]; then
-            # First argument - complete project names (Rust does prefix + case-insensitive)
+        # Build effective words/position by stripping --push flag
+        local -a ewords=("${COMP_WORDS[0]}")
+        local epos=0
+        local i
+        for (( i=1; i<${#COMP_WORDS[@]}; i++ )); do
+            if [[ "${COMP_WORDS[$i]}" != "--push" ]]; then
+                ewords+=("${COMP_WORDS[$i]}")
+                if (( i <= COMP_CWORD )); then (( epos++ )); fi
+            fi
+        done
+        if [[ ${epos} -eq 1 ]]; then
+            # First effective argument - complete project names (Rust does prefix + case-insensitive)
             COMPREPLY=($(pjmai-rs complete projects "$cur" 2>/dev/null))
         else
             # Subsequent arguments - complete subdirs within project
-            local project="${COMP_WORDS[1]}"
-            COMPREPLY=($(pjmai-rs complete subdirs "$project" "${COMP_WORDS[@]:2}" 2>/dev/null))
+            local project="${ewords[1]}"
+            COMPREPLY=($(pjmai-rs complete subdirs "$project" "${ewords[@]:2}" 2>/dev/null))
         fi
     }
     complete -F _pjm_chpj_complete chpj

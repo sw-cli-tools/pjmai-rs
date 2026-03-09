@@ -36,17 +36,25 @@ fn run() -> Result<()> {
             tags,
             language,
             group,
+            pinned,
         } => command::add(
-            project,
-            file_or_dir,
-            description.clone(),
-            tags.clone(),
-            language.clone(),
-            group.clone(),
+            &command::AddParams {
+                project_name: project.clone(),
+                file_name: file_or_dir.clone(),
+                description: description.clone(),
+                tags: tags.clone(),
+                language: language.clone(),
+                group: group.clone(),
+                pinned: *pinned,
+            },
             json,
         )?,
         args::Subcommands::Aliases {} => command::aliases(json),
-        args::Subcommands::Change { project, subdirs } => command::change(project, subdirs, json)?,
+        args::Subcommands::Change {
+            project,
+            subdirs,
+            push,
+        } => command::change(project, subdirs, *push, json)?,
         args::Subcommands::Complete { target } => command::complete(target)?,
         args::Subcommands::Completions { .. } => unreachable!(), // handled above
         args::Subcommands::Config { action } => match action {
@@ -60,18 +68,12 @@ fn run() -> Result<()> {
         args::Subcommands::Env { project, action } => match action {
             args::EnvAction::Set { key, value } => command::env_set(project, key, value, json)?,
             args::EnvAction::Unset { key } => command::env_unset(project, key, json)?,
-            args::EnvAction::OnEnter { command: cmd } => {
-                command::env_on_enter(project, cmd, json)?
-            }
-            args::EnvAction::OnExit { command: cmd } => {
-                command::env_on_exit(project, cmd, json)?
-            }
+            args::EnvAction::OnEnter { command: cmd } => command::env_on_enter(project, cmd, json)?,
+            args::EnvAction::OnExit { command: cmd } => command::env_on_exit(project, cmd, json)?,
             args::EnvAction::PathPrepend { path } => {
                 command::env_path_prepend(project, path, json)?
             }
-            args::EnvAction::PathRemove { path } => {
-                command::env_path_remove(project, path, json)?
-            }
+            args::EnvAction::PathRemove { path } => command::env_path_remove(project, path, json)?,
             args::EnvAction::Show {} => command::env_show(project, json)?,
             args::EnvAction::Clear {} => command::env_clear(project, json)?,
             args::EnvAction::AutoDetect { dry_run } => {
@@ -81,15 +83,38 @@ fn run() -> Result<()> {
         args::Subcommands::Context { project, for_agent } => {
             command::context(project.clone(), *for_agent, json)?
         }
-        args::Subcommands::List { tag, group, recent } => {
-            command::list(tag.clone(), group.clone(), *recent, json)?
-        }
-        args::Subcommands::Meta {
+        args::Subcommands::List {
+            tag,
+            group,
+            lang,
+            long,
+            modified,
+            recent,
+        } => command::list(
+            tag.clone(),
+            group.clone(),
+            lang.clone(),
+            *long,
+            *modified,
+            *recent,
+            json,
+        )?,
+        args::Subcommands::Edit {
             project,
             description,
             language,
             group,
-        } => command::meta(project, description.clone(), language.clone(), group.clone(), json)?,
+            pin,
+            unpin,
+        } => command::edit(
+            project,
+            description.clone(),
+            language.clone(),
+            group.clone(),
+            *pin,
+            *unpin,
+            json,
+        )?,
         args::Subcommands::Note { project, action } => command::note(project, action, json)?,
         args::Subcommands::Pop {} => command::pop(json)?,
         args::Subcommands::Stack { action } => match action {
@@ -119,11 +144,29 @@ fn run() -> Result<()> {
             dry_run,
             add_all,
             reset,
+            yes: skip_confirm,
         } => {
+            let auto_yes = yes || *skip_confirm;
             if *reset && !*dry_run {
-                command::remove_all(yes, json)?;
+                command::scan_reset(
+                    dir,
+                    *depth,
+                    ignore.clone(),
+                    *dry_run,
+                    *add_all || auto_yes,
+                    auto_yes,
+                    json,
+                )?;
+            } else {
+                command::scan(
+                    dir,
+                    *depth,
+                    ignore.clone(),
+                    *dry_run,
+                    *add_all || auto_yes,
+                    json,
+                )?;
             }
-            command::scan(dir, *depth, ignore.clone(), *dry_run, *add_all || yes, json)?;
         }
         args::Subcommands::Setup {
             shell,
@@ -134,11 +177,11 @@ fn run() -> Result<()> {
         args::Subcommands::Show {} => command::show(json)?,
         args::Subcommands::Tag { project, action } => command::tag(project, action, json)?,
         args::Subcommands::History { index } => command::history(index.as_ref(), json)?,
+        args::Subcommands::Query { project } => command::query(project, json)?,
+        args::Subcommands::Exports { format } => command::exports(format, json)?,
         args::Subcommands::Group { action } => match action {
             args::GroupAction::List { all } => command::group_list(*all, json)?,
-            args::GroupAction::Show { name, all } => {
-                command::group_show(name.clone(), *all, json)?
-            }
+            args::GroupAction::Show { name, all } => command::group_show(name.clone(), *all, json)?,
             args::GroupAction::Prompt { alias } => command::group_prompt(*alias, json)?,
             args::GroupAction::Alias {
                 group,

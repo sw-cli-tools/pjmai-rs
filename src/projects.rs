@@ -193,6 +193,25 @@ impl ProjectsRegistry {
             .collect()
     }
 
+    /// Get projects filtered by language (case-insensitive, matches any component in "rust+python")
+    pub fn projects_with_language(&self, lang: &str) -> Vec<&ChangeToProject> {
+        let query = lang.to_lowercase();
+        self.project
+            .iter()
+            .filter(|p| {
+                p.metadata
+                    .as_ref()
+                    .and_then(|m| m.language.as_ref())
+                    .map(|l| {
+                        l.to_lowercase()
+                            .split('+')
+                            .any(|component| component == query)
+                    })
+                    .unwrap_or(false)
+            })
+            .collect()
+    }
+
     /// Get projects filtered by group
     pub fn projects_in_group(&self, group: &str) -> Vec<&ChangeToProject> {
         self.project
@@ -262,14 +281,14 @@ impl ProjectsRegistry {
 
         for project in &self.project {
             if let Some((group_name, group_path)) = self.get_project_group(project) {
-                let entry = groups_map.entry(group_name.clone()).or_insert_with(|| {
-                    InferredGroup {
+                let entry = groups_map
+                    .entry(group_name.clone())
+                    .or_insert_with(|| InferredGroup {
                         name: group_name.clone(),
                         alias: self.group_aliases.get(&group_name).cloned(),
                         path: group_path,
                         projects: Vec::new(),
-                    }
-                });
+                    });
                 entry.projects.push(project.name.clone());
             }
         }
