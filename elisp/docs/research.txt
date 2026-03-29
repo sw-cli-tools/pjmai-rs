@@ -1,0 +1,1084 @@
+
+
+
+
+So, I have a CLI app that integrates with the shell to change between projects.  The app, in Rust, maintains a database of nicknames to paths (or setup file).  Since the Rust code is a subprocess it cannot change the cwd, so it communicates via exit codes to the shell what to do (source a file, cd, etc.).  This works nicely in iTerm2 on Mac with .zshrc (and also should work on other terminals, on Linux OSs, with .bashrc--not fully tested).  However, when I use this within an emacs shell, and the zsh changes dirs, Emacs's shell autocomplete still thinks it is in the old pwd.  So I need a way to refresh the emacs state when running the commands inside emacs shell.  As a workaround, I use M-x dirs to resync the current dir after a change in projects.  Alternatively it would be nice to have an elisp library that interfaces with the Rust app (via CLI calls?) to create a new named-shell per project, so when I switch projects it creates a new shell, runs the shell alias that uses the Rust CLI to find the path to switch to, switches to that path, and syncs emacs autocomplete (or perhaps get the path from Rust CLI and open a shell at that path?
+
+You have two related requirements:
+
+Fix directory tracking inside Emacs when your shell changes directories indirectly.
+
+Design a cleaner Emacs integration so project switching feels native instead of fighting shell-mode.
+
+The key architectural point is this:
+
+Your Rust CLI is doing the right thing by not trying to mutate the parent shell process.
+
+The problem is really in Emacs process state and directory bookkeeping, not in Rust.
+
+In Emacs, the best solution depends heavily on which shell integration you are using:
+
+shell-mode
+
+term / ansi-term
+
+vterm
+
+eshell
+
+shell-mode is the most fragile here, because it does command sending and directory tracking through Emacs process filters and heuristics. If your prompt or shell behavior is unusual, Emacs can lag behind the real shell cwd.
+
+What is happening
+High-level design issue
+Your Rust app returns instructions to the shell, and the shell executes cd or source ....
+
+That means:
+
+the real shell process changes cwd
+
+but Emacs shell buffer metadata may not get updated
+
+so completion, default-directory, and some commands still behave as though the old path is active
+
+In Emacs terms, default-directory in the shell buffer is stale.
+
+This is why M-x dirs or similar manual refresh helps: it forces Emacs to reconcile with the shell state.
+
+Best approaches
+Option A — Stop relying on in-shell cd tracking, and let Emacs create/switch shells at the target directory
+This is the cleanest design.
+
+Instead of:
+
+user runs shell alias
+
+alias calls Rust
+
+Rust tells shell to cd
+
+Emacs tries to notice afterward
+
+do this:
+
+Emacs asks Rust for the target path
+
+Emacs creates or switches to a shell buffer whose default-directory is already that path
+
+Emacs launches shell there
+
+Why this is better
+Benefits
+Emacs and shell start in agreement
+
+completion works immediately
+
+no fragile prompt parsing
+
+easy to create one shell per project
+
+simpler cross-platform story
+
+Risks / downsides
+requires some Elisp glue
+
+shifts some UX from shell aliases into Emacs commands
+
+existing terminal workflow remains separate
+
+For Emacs integration, this is the approach I recommend first.
+
+Option B — Keep current alias-based workflow, but explicitly notify Emacs after every directory change
+This can work, but it is more brittle.
+
+You would need some way for the shell to tell Emacs:
+
+“My cwd is now X; update buffer-local default-directory.”
+
+That is possible, but the implementation varies by shell mode and can get awkward.
+
+Pros
+preserves your current shell alias UX
+
+minimal Rust changes
+
+Cons
+more mode-specific
+
+more debugging pain
+
+more likely to break across shell-mode, term, vterm, TRAMP, remote shells, unusual prompts, etc.
+
+Option C — Use vterm or eshell as the main integration target
+If you are willing to adjust your Emacs shell setup, this may be the most robust long term.
+
+vterm
+very good terminal emulation
+
+shell behavior is closer to real terminal behavior
+
+generally better than shell-mode for modern interactive shell usage
+
+eshell
+Emacs-native
+
+can integrate very cleanly with Elisp and project workflows
+
+but differs from real zsh/bash semantics, so it may not fit your CLI alias model
+
+If your workflow is shell-heavy and terminal-authentic, vterm is more attractive than shell-mode.
+
+Recommended architecture
+I would structure this as two layers:
+
+Layer 1 — Rust CLI gains a pure query mode
+Your Rust app should expose something like:
+
+proj path <nickname>
+or
+
+proj resolve <nickname>
+and print only the canonical target directory.
+
+Possibly also:
+
+proj env <nickname>
+proj setup <nickname>
+proj shell-init <nickname>
+if there is setup-file logic beyond just cd.
+
+The idea is that Emacs should be able to call Rust in a non-shell-mutating mode and receive structured output.
+
+Good output options
+Simple
+Just print the path:
+
+/Users/mike/src/foo
+Better
+Print JSON:
+
+{"path":"/Users/mike/src/foo","setup_file":"/Users/mike/.config/proj/foo.zsh"}
+JSON is better if you expect this to grow.
+
+Layer 2 — Emacs command creates/switches named shell buffers per project
+Example workflow:
+
+M-x my-proj-shell
+
+prompt for nickname
+
+Emacs runs proj resolve <nickname>
+
+Emacs gets path
+
+Emacs opens or reuses *proj:foo*
+
+buffer default-directory is set to that path
+
+shell starts there
+
+This solves your autocomplete problem because Emacs never has stale directory state.
+
+Nonfunctional requirements to keep in mind
+Reliability
+Avoid prompt-parsing hacks where possible.
+
+Portability
+Keep Rust CLI as the source of truth for nickname → path/setup mapping.
+
+Extensibility
+Return structured data from Rust if you may later support:
+
+env vars
+
+custom shell init fragments
+
+project type
+
+preferred shell
+
+project-local commands
+
+Emacs UX
+Prefer predictable named buffers:
+
+*proj:foo*
+
+*proj:bar*
+
+This makes switching much nicer than repeatedly mutating one shell.
+
+Concrete design choices
+Design 1: Rust returns only path, Emacs handles shell creation
+This is the simplest and probably best first milestone.
+
+Rust
+proj resolve foo
+prints:
+
+/Users/mike/src/foo
+Emacs
+calls CLI
+
+trims output
+
+validates directory exists
+
+creates shell there
+
+Good fit when
+setup is mostly just changing directory
+
+little or no required shell sourcing
+
+Design 2: Rust returns path + init script, Emacs injects commands into shell
+If some projects need setup scripts, then Emacs can:
+
+create shell in target dir
+
+send source ... after shell starts
+
+This is still much cleaner than asking the shell alias to do all the work first and hoping Emacs notices.
+
+Good fit when
+some projects require env activation, aliases, toolchains, etc.
+
+Design 3: Emacs bypasses shell alias entirely for project switching
+This is the most Emacs-native.
+
+You retain shell aliases for external terminals, but inside Emacs you use dedicated Elisp commands.
+
+That means two frontends over the same Rust backend:
+
+shell alias frontend
+
+Emacs frontend
+
+This is probably the right separation of concerns.
+
+Suggested Elisp approach
+Here is a compact proof-of-concept for shell-mode.
+
+Basic version: open or reuse a named shell at the Rust-resolved path
+(defun my-proj--call-cli (&rest args)
+  "Call project CLI and return trimmed stdout, or signal an error."
+  (with-temp-buffer
+    (let ((status (apply #'process-file "proj" nil (current-buffer) nil args)))
+      (unless (eq status 0)
+        (error "proj failed: %s"
+               (string-trim (buffer-string))))
+      (string-trim (buffer-string)))))
+
+(defun my-proj-resolve-path (nickname)
+  "Resolve NICKNAME to a directory path using the Rust CLI."
+  (let ((path (my-proj--call-cli "resolve" nickname)))
+    (unless (file-directory-p path)
+      (error "Resolved path is not a directory: %s" path))
+    (file-name-as-directory (expand-file-name path))))
+
+(defun my-proj-shell-buffer-name (nickname)
+  (format "*proj:%s*" nickname))
+
+(defun my-proj-shell (nickname)
+  "Create or switch to a shell buffer for project NICKNAME."
+  (interactive "sProject nickname: ")
+  (let* ((dir (my-proj-resolve-path nickname))
+         (bufname (my-proj-shell-buffer-name nickname))
+         (buf (get-buffer bufname)))
+    (if (buffer-live-p buf)
+        (pop-to-buffer buf)
+      (let ((default-directory dir))
+        (shell bufname)
+        (with-current-buffer bufname
+          (setq-local default-directory dir)
+          ;; Optional: rename buffer again if shell renamed it
+          (rename-buffer bufname t))
+        (pop-to-buffer bufname)))))
+This already gives you:
+
+a named shell per project
+
+correct default-directory
+
+working completion from the start
+
+Improved version: if shell already exists, resync it to the project directory
+If you want existing project shell buffers to be reusable and re-centered when needed:
+
+(defun my-proj-shell-sync (nickname)
+  "Switch to the project shell for NICKNAME, creating it if needed.
+If it already exists, send a cd command and update Emacs state."
+  (interactive "sProject nickname: ")
+  (let* ((dir (my-proj-resolve-path nickname))
+         (bufname (my-proj-shell-buffer-name nickname))
+         (buf (get-buffer bufname)))
+    (if (not (buffer-live-p buf))
+        (let ((default-directory dir))
+          (shell bufname)
+          (with-current-buffer bufname
+            (setq-local default-directory dir)
+            (rename-buffer bufname t))
+          (pop-to-buffer bufname))
+      (pop-to-buffer buf)
+      (with-current-buffer buf
+        (setq-local default-directory dir)
+        (goto-char (point-max))
+        (insert (format "cd %s" (shell-quote-argument dir)))
+        (comint-send-input)))))
+This explicitly updates Emacs’s idea of default-directory before sending cd.
+
+That helps for shell-mode.
+
+If you want setup-file support
+Suppose Rust can emit JSON like:
+
+{
+  "path": "/Users/mike/src/foo",
+  "setup_file": "/Users/mike/.config/proj/foo.zsh"
+}
+Then Emacs can:
+
+open shell at path
+
+send source setup_file
+
+You could parse JSON in Elisp with json-parse-string.
+
+Example shape:
+
+(defun my-proj-info (nickname)
+  (let* ((json-object-type 'plist)
+         (json-array-type 'list)
+         (raw (my-proj--call-cli "info" "--json" nickname)))
+    (json-parse-string raw :object-type 'plist :array-type 'list)))
+Then:
+
+(let* ((info (my-proj-info nickname))
+       (dir (plist-get info :path))
+       (setup (plist-get info :setup_file)))
+  ...)
+What about fixing your current alias workflow inside shell-mode?
+You can try to repair it, but I would treat that as secondary.
+
+Why autocomplete gets stale
+In shell-mode, Emacs often updates default-directory by recognizing directory changes in the shell output/prompt. If your custom flow changes directories in a way Emacs does not notice, completion remains tied to the old directory.
+
+Possible fixes
+1. Ensure shell prompt integration is standard enough
+If your prompt emits recognizable cwd information, shell-dirtrack-mode may work better.
+
+Check whether shell-dirtrack-mode or explicit dirtrack-mode is active in that shell buffer.
+
+2. Add explicit pwd after the project-switch command
+Sometimes sending pwd after the shell cd gives Emacs enough output to resync, depending on mode setup.
+
+3. Write an Emacs wrapper command around your shell alias
+Instead of typing the alias directly, define an interactive Elisp command that:
+
+sends the alias command
+
+then updates default-directory itself based on a separate Rust resolve call
+
+This is a reasonable compromise.
+
+Example:
+
+(defun my-proj-shell-command (nickname)
+  "Run the existing shell alias flow, but also resync Emacs."
+  (interactive "sProject nickname: ")
+  (let ((dir (my-proj-resolve-path nickname)))
+    (setq-local default-directory dir)
+    (goto-char (point-max))
+    (insert (format "pj %s" nickname)) ;; your alias here
+    (comint-send-input)))
+This is a useful transitional approach.
+
+Comparison of approaches
+Approach 1 — Keep alias, patch Emacs afterward
+Benefits
+minimal workflow change
+
+keeps terminal and Emacs usage aligned
+
+Risks
+still somewhat brittle
+
+harder to reason about
+
+depends on shell mode quirks
+
+Approach 2 — Emacs calls Rust directly, opens named shells
+Benefits
+robust
+
+simple mental model
+
+easy completion and shell-per-project
+
+best long-term design
+
+Risks
+requires an Emacs-specific command set
+
+duplicates a bit of shell alias UX
+
+Approach 3 — Move to vterm and integrate there
+Benefits
+better terminal fidelity
+
+often nicer for shell-heavy users
+
+Risks
+requires package/config change
+
+still may want Emacs-side project-shell creation anyway
+
+My recommendation
+First choice
+Build an Emacs-native wrapper around your Rust CLI.
+
+Specifically:
+
+add a Rust subcommand that resolves nickname → path
+
+optionally add JSON output for path/setup metadata
+
+write an Elisp command that creates/reuses one shell buffer per project
+
+set default-directory before shell launch
+
+optionally source setup commands after launch
+
+This avoids the stale pwd/autocomplete problem instead of trying to repair it after the fact.
+
+Second choice
+If you want to preserve your current typing habits in Emacs shell, add an interactive Elisp command that:
+
+asks Rust for the resolved path
+
+sets buffer-local default-directory
+
+sends the existing alias command or a direct cd
+
+That is a smaller migration step.
+
+Third choice
+Consider doing this on top of vterm if your Emacs shell usage is very terminal-centric.
+
+A practical incremental plan
+Milestone 1
+Add to Rust:
+
+proj resolve <nickname>
+prints the canonical path.
+
+Milestone 2
+Add basic Elisp:
+
+my-proj-shell
+
+named buffer per project
+
+open shell at resolved path
+
+Milestone 3
+Add reuse behavior:
+
+if shell exists, switch to it
+
+maybe re-cd if needed
+
+Milestone 4
+Add structured metadata:
+
+proj info --json <nickname>
+for setup files, env, etc.
+
+Milestone 5
+Optional niceties:
+
+completion for nicknames
+
+project-shell listing/switching
+
+integration with project.el
+
+project-local compile/test commands
+
+One subtle but important design suggestion
+Have your Rust CLI expose two clean interfaces:
+
+Shell-facing interface
+For external terminal use:
+
+exit codes
+
+shell integration
+
+alias/function behavior
+
+Tool-facing interface
+For Emacs and scripts:
+
+resolve
+
+info --json
+
+stable stdout contract
+
+That separation will make both worlds cleaner.
+
+Bottom line
+The best fix is not to make Emacs guess that the shell moved.
+It is to let Emacs know the target directory before the shell is created or switched.
+
+So I would build:
+
+a Rust resolve/info command
+
+an Elisp command that opens or reuses one shell buffer per project
+
+That gives you native project switching, correct autocomplete, and a cleaner architecture than trying to force shell-mode to track external shell mutations.
+
+If you want, I can turn this into a small Emacs package skeleton with:
+
+nickname completion
+
+named shell-per-project buffers
+
+optional setup-file support
+
+support for shell-mode and vterm.
+
+
+Note:
+
+[p24p] ~ % hlpj
+adpj <name> -f <dir|file> # alias for pjmai add
+chpj <name>               # alias for pjmai change
+ctpj [name]               # alias for pjmai context
+edpj <name> [opts]        # alias for pjmai edit
+evpj <name> <cmd> [args]  # alias for pjmai env
+hlpj                      # alias for pjmai aliases
+hypj [N]                  # alias for pjmai history
+lspj                      # alias for pjmai list
+mvpj <old> <new>          # alias for pjmai rename
+popj                      # alias for pjmai pop
+prpj                      # alias for pjmai prompt
+pspj <name>               # alias for pjmai push
+qypj <name>               # alias for pjmai query
+rmpj <name>               # alias for pjmai remove
+scpj [dir]                # alias for pjmai scan
+shpj                      # alias for pjmai show
+stpj show|clear           # alias for pjmai stack
+xppj [--format FMT]       # alias for pjmai exports
+srcpj                     # source .pjmai.sh (opt-in env)
+
+Group aliases:
+lsgp                      # alias for pjmai group list
+shgp [name]               # alias for pjmai group show
+prgp                      # alias for pjmai group prompt
+
+User-editable files:
+~/.pjmai/config.toml      # project registry (managed by commands)
+~/.pjmai/pinned.sh        # custom projects re-added after scan --reset
+~/.pjmai/approved-envs    # approved .pjmai.sh hashes
+.pjmai.sh                 # per-project env (opt-in via srcpj)
+I want something like <some user Ctrl key binding prefix for pjmai-rs> c-h (for help) c-c for change c-s for show c-l for list etc.
+
+You want an Emacs-native keymap prefix for pjmai-rs, with mnemonic subcommands like:
+
+PREFIX h for help
+
+PREFIX c for change
+
+PREFIX s for show
+
+PREFIX l for list
+
+and likely a small Emacs package layer that calls your existing CLI aliases or, better, the underlying pjmai binary directly.
+
+That is a good fit for a dedicated sparse keymap plus a minor mode or global prefix binding. This is cleaner than trying to overload shell aliases inside shell-mode, and it gives you discoverability, completion, and room to grow.
+
+Recommended design
+High-level approach
+Use:
+
+a single prefix key, for example C-c p
+
+a pjmai command map under that prefix
+
+mnemonic one-letter bindings beneath it
+
+So the UX becomes:
+
+C-c p h → help / aliases
+
+C-c p c → change project
+
+C-c p s → show current project
+
+C-c p l → list projects
+
+This is more idiomatic than trying to make the prefix itself be a control prefix like “some Ctrl prefix then Ctrl-H / Ctrl-C / Ctrl-S”. In Emacs, a prefix like C-c p followed by a normal letter is usually much more reliable and easier to remember.
+
+Why not literal Ctrl-prefix + Ctrl-key everywhere
+Pros
+resembles terminal habits
+
+feels compact
+
+Cons
+many C-... combinations are already heavily used by Emacs
+
+C-h is help, C-s is search, C-c is special, etc.
+
+terminal/GUI/OS differences can make some of these unpleasant
+
+harder to extend cleanly
+
+So instead of:
+
+PREFIX C-h
+
+PREFIX C-c
+
+PREFIX C-s
+
+I would strongly recommend:
+
+C-c p h
+
+C-c p c
+
+C-c p s
+
+You still get the mnemonic value without fighting Emacs.
+
+Suggested command layout
+Here is a practical first-pass mapping based on your CLI.
+
+Core project commands
+Key	Command	CLI analog
+C-c p h	help	hlpj
+C-c p c	change	chpj <name>
+C-c p s	show	shpj
+C-c p l	list	lspj
+C-c p q	query	qypj <name>
+C-c p a	add	`adpj <name> -f <dir
+C-c p e	edit	edpj <name>
+C-c p r	remove / rename submenu	rmpj, mvpj
+C-c p p	push	pspj <name>
+C-c p o	pop	popj
+C-c p t	context	ctpj [name]
+C-c p x	exports	xppj
+C-c p v	env	evpj <name> <cmd>
+C-c p S	scan	scpj [dir]
+C-c p P	prompt	prpj
+C-c p U	srcpj / source project env	srcpj
+Group commands
+Key	Command	CLI analog
+C-c p g l	group list	lsgp
+C-c p g s	group show	shgp [name]
+C-c p g p	group prompt	prgp
+Stack/history commands
+Key	Command	CLI analog
+C-c p H	history	hypj [N]
+C-c p k s	stack show	stpj show
+C-c p k c	stack clear	stpj clear
+That gives you a decent namespace without collisions.
+
+Recommended architecture
+Layer 1: Emacs calls the real binary, not shell aliases
+In Elisp, do not call hlpj, chpj, etc. as shell aliases.
+
+Instead call the actual program, likely something like:
+
+pjmai ...
+or whatever the Rust binary is named.
+
+Why this is better:
+
+aliases are shell-dependent
+
+Emacs process-file / call-process does not automatically expand zsh aliases
+
+direct binary invocation is more portable and reliable
+
+So your Emacs command pjmai-change would internally run:
+
+pjmai change <name>
+not:
+
+chpj <name>
+The aliases remain great for interactive terminal usage, but Emacs should target the stable program interface.
+
+Best UX pattern inside Emacs
+There are really two kinds of commands here:
+
+1. Read-only / reporting commands
+Examples:
+
+help
+
+list
+
+show
+
+history
+
+exports
+
+group list/show
+
+These can go to a dedicated output buffer such as:
+
+*pjmai*
+
+*pjmai-list*
+
+*pjmai-help*
+
+2. State-changing / navigation commands
+Examples:
+
+change
+
+push
+
+pop
+
+add
+
+remove
+
+rename
+
+These should either:
+
+update Emacs state directly, or
+
+call your CLI and then refresh related buffers/shells
+
+For “change”, I would not merely display output. I would use it to:
+
+resolve the target project
+
+optionally switch to its shell buffer
+
+optionally open dired
+
+optionally set a project-local shell buffer
+
+That is the strongest integration point.
+
+Practical recommendation for the prefix
+Best default
+(global-set-key (kbd "C-c p") pjmai-command-map)
+Why:
+
+C-c letter is the classic user-reserved area
+
+p naturally suggests “project” or “pjmai”
+
+Alternatives
+C-c j if you want “jump”
+
+C-c m if you want “mai”
+
+C-c P if you want uppercase namespace
+
+function-key prefix if you prefer
+
+But C-c p is probably the best default.
+
+Suggested Elisp skeleton
+Here is a compact starting point.
+
+(defgroup pjmai nil
+  "Emacs integration for pjmai-rs."
+  :group 'tools
+  :prefix "pjmai-")
+
+(defcustom pjmai-program "pjmai"
+  "Path to the pjmai executable."
+  :type 'string)
+
+(defcustom pjmai-buffer-name "*pjmai*"
+  "Default output buffer for pjmai commands."
+  :type 'string)
+
+(defun pjmai--call (&rest args)
+  "Run pjmai with ARGS and return trimmed stdout.
+Signal an error if the command fails."
+  (with-temp-buffer
+    (let ((status (apply #'process-file pjmai-program nil (current-buffer) nil args)))
+      (let ((output (string-trim (buffer-string))))
+        (if (eq status 0)
+            output
+          (error "pjmai failed: %s" output))))))
+
+(defun pjmai--display-command (buffer &rest args)
+  "Run pjmai with ARGS and display output in BUFFER."
+  (let ((buf (get-buffer-create buffer)))
+    (with-current-buffer buf
+      (setq buffer-read-only nil)
+      (erase-buffer)
+      (let ((status (apply #'process-file pjmai-program nil buf nil args)))
+        (goto-char (point-min))
+        (special-mode)
+        (unless (eq status 0)
+          (error "pjmai command failed; see %s" buffer))))
+    (pop-to-buffer buf)))
+
+(defun pjmai-help ()
+  (interactive)
+  (pjmai--display-command "*pjmai-help*" "aliases"))
+
+(defun pjmai-list ()
+  (interactive)
+  (pjmai--display-command "*pjmai-list*" "list"))
+
+(defun pjmai-show ()
+  (interactive)
+  (pjmai--display-command "*pjmai-show*" "show"))
+
+(defun pjmai-history (&optional n)
+  (interactive "P")
+  (if n
+      (pjmai--display-command "*pjmai-history*" "history" (format "%s" n))
+    (pjmai--display-command "*pjmai-history*" "history")))
+
+(defun pjmai-change (name)
+  (interactive "sChange to project: ")
+  ;; Replace this with a more structured subcommand if available.
+  (pjmai--display-command "*pjmai-change*" "change" name))
+
+(defun pjmai-query (name)
+  (interactive "sQuery project: ")
+  (pjmai--display-command "*pjmai-query*" "query" name))
+
+(defun pjmai-context (&optional name)
+  (interactive
+   (list (let ((s (read-string "Context project (blank for current): ")))
+           (unless (string-empty-p s) s))))
+  (if name
+      (pjmai--display-command "*pjmai-context*" "context" name)
+    (pjmai--display-command "*pjmai-context*" "context")))
+
+(defun pjmai-exports ()
+  (interactive)
+  (pjmai--display-command "*pjmai-exports*" "exports"))
+
+(defun pjmai-group-list ()
+  (interactive)
+  (pjmai--display-command "*pjmai-groups*" "group" "list"))
+
+(defun pjmai-group-show (&optional name)
+  (interactive
+   (list (let ((s (read-string "Group name (blank for current): ")))
+           (unless (string-empty-p s) s))))
+  (if name
+      (pjmai--display-command "*pjmai-group-show*" "group" "show" name)
+    (pjmai--display-command "*pjmai-group-show*" "group" "show")))
+
+(defun pjmai-group-prompt ()
+  (interactive)
+  (pjmai--display-command "*pjmai-group-prompt*" "group" "prompt"))
+Then define the keymap:
+
+(defvar pjmai-command-map
+  (let ((map (make-sparse-keymap))
+        (gmap (make-sparse-keymap))
+        (kmap (make-sparse-keymap)))
+    ;; top-level
+    (define-key map (kbd "h") #'pjmai-help)
+    (define-key map (kbd "c") #'pjmai-change)
+    (define-key map (kbd "s") #'pjmai-show)
+    (define-key map (kbd "l") #'pjmai-list)
+    (define-key map (kbd "q") #'pjmai-query)
+    (define-key map (kbd "t") #'pjmai-context)
+    (define-key map (kbd "x") #'pjmai-exports)
+    (define-key map (kbd "H") #'pjmai-history)
+
+    ;; groups
+    (define-key map (kbd "g") gmap)
+    (define-key gmap (kbd "l") #'pjmai-group-list)
+    (define-key gmap (kbd "s") #'pjmai-group-show)
+    (define-key gmap (kbd "p") #'pjmai-group-prompt)
+
+    ;; stack
+    (define-key map (kbd "k") kmap)
+    (define-key kmap (kbd "s")
+      (lambda () (interactive)
+        (pjmai--display-command "*pjmai-stack*" "stack" "show")))
+    (define-key kmap (kbd "c")
+      (lambda () (interactive)
+        (pjmai--display-command "*pjmai-stack*" "stack" "clear")))
+
+    map)
+  "Keymap for pjmai commands.")
+
+(global-set-key (kbd "C-c p") pjmai-command-map)
+This gives you:
+
+C-c p h
+
+C-c p c
+
+C-c p s
+
+C-c p l
+
+C-c p g l
+
+C-c p k s
+
+and so on.
+
+Better version: add transient or which-key support
+If you use which-key, the above becomes very discoverable immediately.
+
+Example:
+
+hit C-c p
+
+Emacs popup shows available pjmai subcommands
+
+That is an excellent fit for your alias family.
+
+If you want even better UX, you could later wrap this in transient, giving you a Magit-like command panel. But I would start with a sparse keymap first because it is simpler and very effective.
+
+How this ties back to your shell/project problem
+A prefix map is useful on its own, but the highest-value command here is pjmai-change.
+
+That one should eventually become smarter than just “display CLI output”.
+
+Ideal pjmai-change behavior inside Emacs
+Instead of merely invoking pjmai change NAME, your Emacs integration should eventually do this:
+
+Ask pjmai to resolve the target project path.
+
+Open or switch to a named shell buffer for that project.
+
+Set default-directory correctly in Emacs.
+
+Optionally run project env setup.
+
+Optionally open dired or a project root buffer.
+
+That would solve the stale-directory/autocomplete issue much more cleanly.
+
+So I would think of the keymap work as the front door, and the smarter shell integration as the next layer behind it.
+
+Suggested next-step command priorities
+I would implement in this order:
+
+Phase 1
+h help
+
+l list
+
+s show
+
+c change
+
+q query
+
+Phase 2
+t context
+
+H history
+
+x exports
+
+g l, g s, g p
+
+Phase 3
+a add
+
+e edit
+
+r remove / rename submenu
+
+p push
+
+o pop
+
+stack submenu
+
+Phase 4
+project-aware shell creation/switching
+
+completion for project names
+
+integration with project.el, compile, rg, vterm, dired
+
+My concrete recommendation
+Use:
+
+C-c p
+as the prefix, and start with:
+
+C-c p h   help
+C-c p c   change
+C-c p s   show
+C-c p l   list
+C-c p q   query
+C-c p t   context
+C-c p H   history
+C-c p x   exports
+C-c p g l group list
+C-c p g s group show
+C-c p g p group prompt
+This is idiomatic, scalable, and easy to learn.
+
+One refinement I would strongly suggest
+Add a stable machine-readable CLI command for Emacs, something like:
+
+pjmai query <name> --format json
+or
+
+pjmai resolve <name> --format json
+with fields like:
+
+project name
+
+root path
+
+setup file if any
+
+current group
+
+maybe a display label
+
+That will make your Emacs integration much more robust than scraping human-readable output.
+
+Bottom line
+Yes — a prefix keymap for pjmai-rs is the right direction.
+
+I would implement it as:
+
+prefix: C-c p
+
+subcommands: plain mnemonic letters, not ctrl-letters
+
+backend: call the real pjmai binary, not shell aliases
+
+next step: make change open/switch a project-specific shell with correct default-directory
+
+If you want, I can write a fuller Emacs package skeleton next, with:
+
+project-name completion
+
+named shell-per-project buffers
+
+smarter pjmai-change
+
+optional which-key labels
+
+optional vterm support.
+
+
+
+
+

@@ -1,0 +1,5 @@
+(makunbound 'pjmai-program)
+  (pjmai-global-mode -1)
+(unload-feature 'pjmai t)
+(load-file "/Users/mike/github/sw-cli-tools/pjmai-rs/elisp/pjmai.el")
+ (pjmai-global-mode 1)

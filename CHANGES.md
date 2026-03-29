@@ -1,5 +1,16 @@
 # CHANGES
 
+## 2026-03-29
+
+- Add Emacs integration package (`elisp/pjmai.el`) with per-project shell buffers
+- ERT test suite (`elisp/pjmai-test.el`) with 25 tests using mock CLI
+- Prefix keymap `C-c p` with mnemonic bindings for all pjmai commands
+- Project name tab completion via `completing-read`
+- Resolve project paths via `pjmai-rs --json change -p NAME`
+- Handle pjmai exit codes 0-3 as success (shell signaling protocol)
+- Auto-discover binary at `~/.local/bin/pjmai-rs`
+- Elisp docs: architecture, PRD, design, plan, status, usage
+
 ## 2026-03-07
 
 - Add project navigation history with `hypj` alias (`pjmai history`)
